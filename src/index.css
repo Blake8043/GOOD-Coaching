@@ -1,0 +1,641 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+@keyframes slow-zoom {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+.animate-slow-zoom {
+  animation: slow-zoom 20s ease-in-out infinite alternate;
+}
+
+/* ====== Custom BPJ Card Effects ====== */
+@keyframes hue-rotate { to { filter: hue-rotate(360deg); } }
+@keyframes sheen-move { 0%{transform:translateX(-120%)} 100%{transform:translateX(120%)} }
+
+.card-base {
+  @apply relative rounded-xl border border-white/10 bg-gray-900/90 shadow-lg overflow-hidden;
+}
+
+/* 🔥 Laser Glow Border */
+.card-laser { @apply card-base; }
+.card-laser::before {
+  content:""; position:absolute; inset:-1px; border-radius:inherit;
+  background: conic-gradient(from 180deg at 50% 50%, #14b8a6, #22c55e, #22d3ee, #14b8a6);
+  filter: blur(0.6px) saturate(1.1);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  padding: 1px; pointer-events:none;
+  animation: hue-rotate 12s linear infinite;
+}
+
+/* ✨ Sheen Sweep */
+.card-sheen { @apply card-base; }
+.card-sheen::after {
+  content:""; position:absolute; inset:0; pointer-events:none; opacity:0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.18) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: opacity .2s ease;
+}
+.card-sheen:hover::after { opacity:1; animation: sheen-move 1.2s ease; }
+
+/* 🧊 Glass + Grid */
+.card-gridglass { @apply card-base backdrop-blur bg-white/5; }
+.card-gridglass::before {
+  content:""; position:absolute; inset:0; pointer-events:none; opacity:.22;
+  background-image:
+    radial-gradient(rgba(255,255,255,.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,.06), transparent);
+  background-size: 14px 14px, 100% 100%;
+}
+
+/* 🎯 Tilt Effect */
+.tilt { perspective: 900px; transform-style: preserve-3d; }
+.tilt > .tilt-inner {
+  transform: rotateX(0) rotateY(0) translateZ(0);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.tilt:hover > .tilt-inner { transform: rotateX(3deg) rotateY(-3deg) translateZ(2px); }
+
+/* ====== BPJ PRO CARD SKINS (cross-browser safe) ====== */
+
+/* Base */
+.card-pro {
+  @apply relative rounded-xl bg-gray-900/95 border border-white/10 shadow-lg overflow-hidden;
+}
+
+/* Gradient border using background-clip (no masks) */
+.card-pro--glow {
+  position: relative;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(#0b0f17, #0b0f17) padding-box,
+    linear-gradient(135deg, rgba(16,185,129,.9), rgba(34,211,238,.9)) border-box;
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px -20px rgba(16,185,129,.35);
+}
+.card-pro--glow:hover {
+  box-shadow: 0 18px 50px -24px rgba(16,185,129,.45);
+}
+
+/* Sheen sweep (no masks) */
+.card-pro--sheen {
+  @apply card-pro;
+}
+.card-pro--sheen::after {
+  content: "";
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.14) 50%, transparent 70%);
+  transform: translateX(-120%);
+  opacity: 0; transition: opacity .2s ease, transform .9s ease;
+}
+.card-pro--sheen:hover::after {
+  opacity: 1; transform: translateX(120%);
+}
+
+/* Glass with subtle dot grid */
+.card-pro--grid {
+  @apply card-pro backdrop-blur;
+  background:
+    radial-gradient(rgba(255,255,255,.12) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(to bottom, rgba(255,255,255,.06), transparent) 0 0 / 100% 100%,
+    rgba(17,24,39,.75);
+}
+
+/* Gentle tilt */
+.tilt { perspective: 900px; transform-style: preserve-3d; }
+.tilt > .tilt-inner {
+  transform: rotateX(0) rotateY(0) translateZ(0);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+.tilt:hover > .tilt-inner { transform: rotateX(2deg) rotateY(-3deg) translateZ(2px); }
+
+/* Slow zoom (hero poster fallback) */
+@keyframes slowZoom { 0% { transform: scale(1.05);} 100% { transform: scale(1.12);} }
+.animate-slow-zoom { animation: slowZoom 20s ease-in-out infinite alternate; }
+
+/* Subtle site texture (with external SVG) */
+.bg-noise {
+  background:
+    radial-gradient(800px circle at 50% -10%, rgba(20,184,166,.07), transparent 60%),
+    linear-gradient(to bottom, rgba(255,255,255,.02), transparent 30%),
+    url("/noise.svg") repeat;
+}
+
+/* Soft bottom fade to avoid video edge showing */
+.hero-bottom-fade {
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+}
+
+/* Tweak for Safari overflow artifacts on video */
+.video-smooth {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+/* ===== Big Papa Joe Surface: gradient + noise + brand glow ===== */
+.bpj-surface {
+  position: relative;
+  /* Deep charcoal vertical gradient (not pure black) */
+  background: linear-gradient(180deg, #0f1115 0%, #0c0f14 40%, #090c10 100%);
+  color: #fff;
+  isolation: isolate; /* creates a new stacking context for the overlays */
+}
+
+/* Ultra‑subtle noise overlay (won't trigger postcss issues) */
+.bpj-surface::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: url("/noise.svg");
+  opacity: 0.25;      /* keep it very subtle */
+  pointer-events: none;
+  z-index: -1;
+  mix-blend-mode: normal;
+}
+
+/* Brand glow (top-right + bottom-left) */
+.bpj-surface::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(50% 40% at 85% 5%, rgba(16,185,129,0.12) 0%, transparent 60%),
+    radial-gradient(55% 45% at 10% 95%, rgba(34,211,238,0.10) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Optional: vignette for big sections (focus center, dark edges) */
+.bpj-vignette {
+  position: relative;
+}
+.bpj-vignette::after {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: radial-gradient(60% 60% at 50% 45%, transparent 60%, rgba(0,0,0,0.65) 100%);
+}
+
+/* Keep your existing helpers */
+.hero-bottom-fade {
+  mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+}
+.video-smooth {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform;
+}
+/* ===== GOOD Coaching Outdoor Court Theme =====
+   Palette: warm court cream, sky blue, paddle teal, pickleball yellow, sunset coral.
+   Add this after the existing CSS so it overrides the old dark BPJ feel. */
+:root {
+  --pp-cream: #fff8e7;
+  --pp-cream-2: #fff1c7;
+  --pp-sky: #90e0ef;
+  --pp-sky-soft: #d9f7fb;
+  --pp-teal: #00a896;
+  --pp-teal-dark: #087f73;
+  --pp-lime: #c6ff4a;
+  --pp-yellow: #ffd166;
+  --pp-coral: #ff7b54;
+  --pp-navy: #12372a;
+  --pp-muted: #5f746c;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(144, 224, 239, 0.45), transparent 30rem),
+    radial-gradient(circle at 90% 4%, rgba(198, 255, 74, 0.28), transparent 26rem),
+    radial-gradient(circle at 80% 92%, rgba(255, 123, 84, 0.18), transparent 28rem),
+    linear-gradient(180deg, var(--pp-cream) 0%, #fffdf5 52%, #f0fbf4 100%);
+  color: var(--pp-navy);
+}
+
+::selection {
+  background: var(--pp-lime);
+  color: var(--pp-navy);
+}
+
+.pp-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(0, 168, 150, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(0, 168, 150, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 8% 14%, rgba(144,224,239,.45), transparent 25rem),
+    radial-gradient(circle at 92% 12%, rgba(255,209,102,.38), transparent 24rem),
+    linear-gradient(180deg, var(--pp-cream), #fffdf7 45%, #effbf2);
+  background-size: 42px 42px, 42px 42px, auto, auto, auto;
+  color: var(--pp-navy);
+}
+
+.pp-card {
+  border: 1px solid rgba(18, 55, 42, 0.10);
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 24px 70px rgba(18, 55, 42, 0.10);
+  backdrop-filter: blur(14px);
+}
+
+.pp-card-solid {
+  border: 1px solid rgba(18, 55, 42, 0.10);
+  background: #fffef8;
+  box-shadow: 0 18px 46px rgba(18, 55, 42, 0.09);
+}
+
+.pp-kicker {
+  color: var(--pp-teal-dark);
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.pp-muted {
+  color: var(--pp-muted);
+}
+
+.pp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, var(--pp-lime), var(--pp-yellow));
+  color: var(--pp-navy);
+  font-weight: 900;
+  box-shadow: 0 14px 28px rgba(198, 255, 74, 0.35), 0 8px 18px rgba(255, 209, 102, 0.25);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+}
+
+.pp-btn-primary:hover {
+  transform: translateY(-2px);
+  filter: saturate(1.08);
+  box-shadow: 0 18px 36px rgba(198, 255, 74, 0.42), 0 10px 22px rgba(255, 209, 102, 0.28);
+}
+
+.pp-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  border: 1px solid rgba(18, 55, 42, .14);
+  background: rgba(255, 255, 255, .70);
+  color: var(--pp-navy);
+  font-weight: 800;
+  transition: transform .18s ease, background .18s ease, border-color .18s ease;
+}
+
+.pp-btn-secondary:hover {
+  transform: translateY(-2px);
+  background: white;
+  border-color: rgba(0, 168, 150, .35);
+}
+
+.pp-pill {
+  border: 1px solid rgba(0, 168, 150, .18);
+  background: rgba(217, 247, 251, .68);
+  color: var(--pp-teal-dark);
+}
+
+.pp-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid rgba(18, 55, 42, .12);
+  background: rgba(255, 255, 255, .82);
+  color: var(--pp-navy);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.pp-input:focus {
+  border-color: rgba(0, 168, 150, .65);
+  box-shadow: 0 0 0 4px rgba(0, 168, 150, .13);
+  background: white;
+}
+
+.pp-input::placeholder {
+  color: rgba(95, 116, 108, .72);
+}
+
+.pp-ball {
+  background:
+    radial-gradient(circle at 35% 25%, #ffffff 0 5%, transparent 6%),
+    radial-gradient(circle at 65% 32%, rgba(18,55,42,.25) 0 3%, transparent 4%),
+    radial-gradient(circle at 38% 70%, rgba(18,55,42,.20) 0 3%, transparent 4%),
+    linear-gradient(135deg, var(--pp-lime), var(--pp-yellow));
+}
+
+.pp-court-card {
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.32) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,.32) 1px, transparent 1px),
+    linear-gradient(135deg, #00a896, #028090 52%, #05668d);
+  background-size: 46px 46px, 46px 46px, auto;
+}
+
+/* Compatibility overrides for existing dark Tailwind classes */
+.bg-black {
+  background-color: var(--pp-cream) !important;
+}
+
+.bg-zinc-950,
+.bg-gray-950,
+.bg-gray-900 {
+  background-color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.bg-white\/10,
+.bg-white\/\[0\.04\] {
+  background-color: rgba(255, 255, 255, 0.62) !important;
+}
+
+.bg-emerald-400 {
+  background: linear-gradient(135deg, var(--pp-lime), var(--pp-yellow)) !important;
+}
+
+.hover\:bg-emerald-300:hover {
+  background: linear-gradient(135deg, #d7ff73, #ffe08a) !important;
+}
+
+.text-white,
+.text-black {
+  color: var(--pp-navy) !important;
+}
+
+.text-gray-200,
+.text-gray-300,
+.text-gray-400,
+.text-gray-500 {
+  color: var(--pp-muted) !important;
+}
+
+.text-emerald-300,
+.text-emerald-400 {
+  color: var(--pp-teal-dark) !important;
+}
+
+.text-amber-300,
+.text-amber-400 {
+  color: var(--pp-coral) !important;
+}
+
+.border-white\/10,
+.border-white\/15 {
+  border-color: rgba(18, 55, 42, 0.10) !important;
+}
+
+.border-emerald-400 {
+  border-color: var(--pp-teal) !important;
+}
+
+.ring-emerald-400 {
+  --tw-ring-color: var(--pp-teal) !important;
+}
+
+input.bg-black,
+select.bg-black,
+textarea.bg-black {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+  color: var(--pp-navy) !important;
+  border-color: rgba(18, 55, 42, 0.12) !important;
+}
+
+input.bg-black::placeholder,
+textarea.bg-black::placeholder {
+  color: rgba(95, 116, 108, .72) !important;
+}
+/* ===== GOOD Coaching v2 cleanup: removes remaining legacy visual leftovers ===== */
+.pp-section-title {
+  color: var(--pp-navy);
+  font-weight: 900;
+}
+
+.pp-section-copy {
+  color: var(--pp-muted);
+  line-height: 1.75;
+}
+
+.pp-surface {
+  border: 1px solid rgba(18, 55, 42, 0.10) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
+  color: var(--pp-navy) !important;
+  box-shadow: 0 18px 46px rgba(18, 55, 42, 0.08) !important;
+  backdrop-filter: blur(12px);
+}
+
+.pp-chip {
+  border: 1px solid rgba(0, 168, 150, .16);
+  background: rgba(217, 247, 251, .72);
+  color: var(--pp-teal-dark);
+  font-weight: 800;
+}
+
+.table-pro,
+table {
+  color: var(--pp-navy);
+}
+
+th {
+  color: var(--pp-teal-dark) !important;
+}
+
+td {
+  color: var(--pp-muted) !important;
+}
+
+.divide-white\/10 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(18, 55, 42, 0.10) !important;
+}
+
+.hover\:bg-white\/10:hover,
+.hover\:bg-white\/20:hover,
+.hover\:bg-white\/5:hover,
+.hover\:bg-white\/\[0\.04\]:hover {
+  background-color: rgba(217, 247, 251, 0.72) !important;
+}
+
+.bg-amber-400\/10,
+.bg-yellow-500\/10 {
+  background-color: rgba(255, 209, 102, .22) !important;
+}
+
+.bg-emerald-600\/25,
+.bg-emerald-500\/20 {
+  background-color: rgba(0, 168, 150, .14) !important;
+}
+
+.border-amber-400\/20 {
+  border-color: rgba(255, 209, 102, .42) !important;
+}
+
+.shadow-lg,
+.shadow-xl,
+.shadow-2xl {
+  --tw-shadow-color: rgba(18, 55, 42, 0.12) !important;
+}
+
+button,
+a {
+  text-underline-offset: 4px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none !important;
+  border-color: rgba(0, 168, 150, .65) !important;
+  box-shadow: 0 0 0 4px rgba(0, 168, 150, .13) !important;
+}
+/* ===== GOOD Coaching application surfaces ===== */
+.card-pro,
+.card-pro--grid,
+.card-pro--glow,
+.card-pro--sheen {
+  color: var(--pp-navy) !important;
+  border: 1px solid rgba(18, 55, 42, 0.10) !important;
+  background:
+    radial-gradient(rgba(0,168,150,.10) 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,248,231,.88)) !important;
+  box-shadow: 0 18px 46px rgba(18, 55, 42, 0.08) !important;
+}
+
+.bg-gray-800,
+.bg-gray-900,
+.bg-gray-900\/80,
+.bg-zinc-950,
+.bg-black,
+.bg-black\/40,
+.bg-black\/50,
+.bg-black\/90 {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+  color: var(--pp-navy) !important;
+}
+
+.text-gray-200,
+.text-gray-300,
+.text-gray-400,
+.text-gray-500,
+.text-neutral-300 {
+  color: var(--pp-muted) !important;
+}
+
+.text-white {
+  color: var(--pp-navy) !important;
+}
+
+.border-white\/10,
+.border-white\/15 {
+  border-color: rgba(18, 55, 42, 0.10) !important;
+}
+
+.divide-white\/10 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(18, 55, 42, 0.10) !important;
+}
+
+.bg-white\/5,
+.bg-white\/10,
+.bg-white\/20,
+.bg-white\/\[0\.04\] {
+  background-color: rgba(255, 255, 255, 0.68) !important;
+}
+
+.hover\:bg-white\/10:hover,
+.hover\:bg-white\/20:hover,
+.hover\:bg-white\/\[0\.04\]:hover {
+  background-color: rgba(217, 247, 251, 0.72) !important;
+}
+
+.bg-green-600,
+.bg-emerald-400 {
+  background: linear-gradient(135deg, var(--pp-lime), var(--pp-yellow)) !important;
+  color: var(--pp-navy) !important;
+}
+
+.hover\:bg-green-500:hover,
+.hover\:bg-emerald-300:hover {
+  filter: brightness(1.04) saturate(1.08);
+}
+
+input.bg-gray-800,
+textarea.bg-gray-800,
+select.bg-gray-900,
+input.bg-black,
+textarea.bg-black,
+select.bg-black,
+input.bg-zinc-950,
+textarea.bg-zinc-950,
+select.bg-zinc-950 {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(18, 55, 42, 0.12) !important;
+  color: var(--pp-navy) !important;
+}
+
+.pp-app-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(0, 168, 150, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(0, 168, 150, 0.045) 1px, transparent 1px),
+    radial-gradient(circle at 10% 14%, rgba(144,224,239,.45), transparent 25rem),
+    radial-gradient(circle at 92% 12%, rgba(255,209,102,.38), transparent 24rem),
+    linear-gradient(180deg, var(--pp-cream), #fffdf7 45%, #effbf2);
+  background-size: 42px 42px, 42px 42px, auto, auto, auto;
+  color: var(--pp-navy);
+}
+
+.pp-app-card {
+  border: 1px solid rgba(18, 55, 42, 0.10);
+  background: rgba(255, 255, 255, 0.84);
+  color: var(--pp-navy);
+  box-shadow: 0 18px 46px rgba(18, 55, 42, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.pp-app-soft {
+  border: 1px solid rgba(0, 168, 150, 0.16);
+  background: rgba(217, 247, 251, 0.62);
+}
+/* Coach profile accessibility: consistently readable actions and status surfaces. */
+.profile-action {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  border: 1px solid rgba(0, 168, 150, .22);
+  border-radius: 9999px;
+  background: #eaf9f7;
+  padding: .55rem .8rem;
+  color: #205746 !important;
+  font-size: .875rem;
+  font-weight: 800;
+}
+
+.profile-action:hover {
+  background: #087f73;
+  color: #fff !important;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+/* Keep disabled controls visibly disabled without fading their text below readable contrast. */
+.disabled\:opacity-60:disabled {
+  opacity: 1 !important;
+  background: #d8dfdc !important;
+  color: #43564e !important;
+  box-shadow: none !important;
+}
+
+.coach-chat-trigger:not(:disabled) {
+  color: #fff !important;
+}

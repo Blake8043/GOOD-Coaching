@@ -1,0 +1,19 @@
+<svg width="900" height="1100" viewBox="0 0 900 1100" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Temporary coach photo - Alex Rivera</title>
+  <desc id="desc">Stylized temporary pickleball coach portrait for layout preview.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d9f7fb"/><stop offset="1" stop-color="#c6ff4a"/></linearGradient>
+    <linearGradient id="shirt" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#12372a"/><stop offset="1" stop-color="#087f73"/></linearGradient>
+  </defs>
+  <rect width="900" height="1100" fill="url(#bg)"/>
+  <rect y="760" width="900" height="340" fill="#12372a" opacity=".16"/>
+  <circle cx="450" cy="380" r="178" fill="#f1b384"/>
+  <path d="M285 360c14-130 102-202 224-183 83 13 139 62 157 145-95-40-215-26-381 38z" fill="#2a1d14"/>
+  <path d="M320 548c71 93 228 95 300 0 80 37 143 115 169 220l38 152H73l38-152c26-105 89-183 209-220z" fill="url(#shirt)"/>
+  <path d="M360 590l90 130 90-130" fill="none" stroke="#fff8e7" stroke-width="28" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>
+  <circle cx="382" cy="390" r="18" fill="#12372a"/><circle cx="520" cy="390" r="18" fill="#12372a"/>
+  <path d="M378 478c44 35 97 35 142 0" fill="none" stroke="#7a3e25" stroke-width="18" stroke-linecap="round"/>
+  <rect x="640" y="610" width="92" height="260" rx="46" fill="#fff8e7" transform="rotate(-18 686 740)"/>
+  <circle cx="692" cy="591" r="88" fill="#ff7b54" transform="rotate(-18 692 591)"/>
+  <text x="450" y="1015" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="46" font-weight="900" fill="#12372a">ALEX RIVERA</text>
+</svg>
