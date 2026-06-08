@@ -310,6 +310,20 @@ export default function CoachDashboard() {
     }
   };
 
+  const deletePackage = async (packageId) => {
+    if (!window.confirm("Delete this coaching plan? Existing paid orders stay in order history.")) return;
+    setBusy(true);
+    try {
+      await api.delete(`/coaches/me/packages/${packageId}`, token);
+      push("Coaching plan deleted.", "success");
+      await load();
+    } catch (err) {
+      push(err.message || "Plan could not be deleted.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const createPackage = async (e) => {
     e.preventDefault();
     setBusy(true);
@@ -666,9 +680,14 @@ export default function CoachDashboard() {
                         {readable(item.reviewType)} / {item.turnaroundHours || 72}h / {Math.min(item.maxVideoMinutes || 15, 15)} min max video
                       </div>
                     </div>
-                    <span className={`rounded-full px-3 py-1 text-xs font-black ${item.active && Number(item.price || 0) > 0 ? "bg-[#c6ff4a] text-[#12372a]" : "bg-[#fff0cf] text-[#7a4d00]"}`}>
-                      {item.active && Number(item.price || 0) > 0 ? "Public" : "Draft"}
-                    </span>
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`rounded-full px-3 py-1 text-xs font-black ${item.active && Number(item.price || 0) > 0 ? "bg-[#c6ff4a] text-[#12372a]" : "bg-[#fff0cf] text-[#7a4d00]"}`}>
+                        {item.active && Number(item.price || 0) > 0 ? "Public" : "Draft"}
+                      </span>
+                      <button type="button" onClick={() => deletePackage(item._id)} disabled={busy} className="rounded-full bg-[#ffebe5] px-3 py-1 text-xs font-black text-[#7a2b18]">
+                        <FaTrash className="mr-1 inline" /> Delete
+                      </button>
+                    </div>
                   </div>
                   {!!deliverables(item).length && <div className="mt-2 text-xs font-bold text-[#087f73]">{deliverables(item).join(" / ")}</div>}
                 </div>

@@ -45,6 +45,12 @@ function packageIsPurchasable(pkg) {
   return Boolean(pkg?._id && pkg?.active !== false && Number(pkg?.price || 0) > 0);
 }
 
+function duprDisplay(value) {
+  if (value === null || value === undefined || value === "") return "NR";
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "") : "NR";
+}
+
 export default function CoachProfile() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -237,8 +243,8 @@ export default function CoachProfile() {
                     )
                   }
                 />
-                <ProfileFact label="Singles" value={coach.duprSingles ?? "Not provided"} />
-                <ProfileFact label="Doubles" value={coach.duprDoubles ?? "Not provided"} />
+                <ProfileFact label="Singles" value={duprDisplay(coach.duprSingles)} />
+                <ProfileFact label="Doubles" value={duprDisplay(coach.duprDoubles)} />
                 <ProfileFact label="Location" value={[coach.city, coach.state, coach.country].filter(Boolean).join(", ") || "Online"} />
                 {coach.duprId && <div className="text-xs font-semibold text-[#40584f] sm:col-span-2">Ratings are entered by the coach. Open the linked DUPR profile to verify current ratings.</div>}
               </div>
@@ -253,7 +259,7 @@ export default function CoachProfile() {
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {coach.contactEmail && (
-                  <a href={`mailto:${coach.contactEmail}`} className="profile-action">
+                  <a href={`mailto:${coach.contactEmail}`} className="inline-flex items-center gap-2 rounded-full border border-[#12372a]/10 bg-white px-4 py-2 text-sm font-black text-[#12372a] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eaf9f7]">
                     <FaEnvelope /> Email coach
                   </a>
                 )}
@@ -458,7 +464,7 @@ function Social({ href, icon, label }) {
   if (!href) return null;
   const url = /^https?:\/\//i.test(href) ? href : `https://${href}`;
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="profile-action">
+    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#12372a]/10 bg-white px-4 py-2 text-sm font-black text-[#12372a] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eaf9f7]">
       {icon} {label}
     </a>
   );

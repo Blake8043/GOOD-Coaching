@@ -171,6 +171,44 @@ async function loadCoachSplitRecipients(coach) {
   });
 }
 
+
+async function loadQuoteSplitRecipients(inquiry, coach) {
+  const rules = Array.isArray(inquiry?.quote?.splitRecipients) ? inquiry.quote.splitRecipients : [];
+  const cleaned = rules
+    .map((item) => ({
+      coachId: String(item?.coachId || item?.recipientCoachId || "").trim(),
+      label: String(item?.label || "").trim(),
+      percentage: safeNumber(item?.percentage, 0),
+    }))
+    .filter((item) => item.coachId && item.percentage > 0 && item.percentage <= 100);
+
+  if (!cleaned.length) return [];
+
+  const total = cleaned.reduce((sum, item) => sum + item.percentage, 0);
+  if (total > 100) {
+    const error = new Error("Quote split percentages cannot exceed 100% of the coach payout.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const ids = cleaned.map((item) => item.coachId).filter(validObjectId);
+  const recipientCoaches = ids.length
+    ? await CoachProfile.find({ _id: { $in: ids } }).select("displayName stripeAccountId").lean()
+    : [];
+  const byId = new Map(recipientCoaches.map((item) => [String(item._id), item]));
+
+  return cleaned.map((item, index) => {
+    const recipient = byId.get(item.coachId);
+    return {
+      coachId: recipient?._id || coach._id,
+      stripeAccountId: recipient?.stripeAccountId || "",
+      label: item.label || recipient?.displayName || `Quote split recipient ${index + 1}`,
+      role: "coach",
+      percentage: item.percentage,
+    };
+  });
+}
+
 function buildSplit({ total, platformFeePercent = PLATFORM_FEE_PERCENT, coach, manualSplits = [] }) {
   const cleanTotal = safeNumber(total, 0);
   const cleanPlatformPercent = safeNumber(platformFeePercent, PLATFORM_FEE_PERCENT);
@@ -465,7 +503,7 @@ router.post(
     }
 
     const clientUrl = requirePublicClientUrl(req);
-    const splitRecipients = await loadCoachSplitRecipients(coach);
+    const splitRecipients = []; // Buy-now public plans do not use global coach splits. Use personalized-request quotes for order-specific splits.
     const split = buildSplit({
       total,
       platformFeePercent: PLATFORM_FEE_PERCENT,
@@ -582,7 +620,7 @@ router.post(
     if (!Number.isFinite(total) || total <= 0) return res.status(400).json({ error: "This quote does not have a valid amount." });
 
     const clientUrl = requirePublicClientUrl(req);
-    const splitRecipients = await loadCoachSplitRecipients(coach);
+    const splitRecipients = await loadQuoteSplitRecipients(inquiry, coach);
     const split = buildSplit({ total, platformFeePercent: PLATFORM_FEE_PERCENT, coach, manualSplits: splitRecipients });
     const platformOnly = shouldUsePlatformOnlyStripe(coach);
 

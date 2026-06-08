@@ -14,7 +14,7 @@ export default function AdminTickets() {
   const load = async () => {
     setLoading(true);
     try {
-      setRows(await api.get("/tickets", token));
+      setRows(await api.get("/admin/support", token));
     } catch (e) {
       push(e.message || "Failed to load requests", "error");
     } finally {
@@ -26,7 +26,7 @@ export default function AdminTickets() {
 
   const update = async (id, status) => {
     try {
-      await api.put(`/tickets/${id}`, { status }, token);
+      await api.put(`/admin/support/${id}`, { status }, token);
       push("Request updated", "success");
       load();
     } catch (e) {
@@ -39,7 +39,7 @@ export default function AdminTickets() {
       <div className="mx-auto max-w-7xl">
         <p className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-300">Operations</p>
         <h1 className="mt-2 text-3xl font-extrabold">Service Requests</h1>
-        <p className="mt-2 text-gray-400">Contact forms and quick quote requests arrive here.</p>
+        <p className="mt-2 text-gray-400">Contact support form submissions arrive here even if email delivery is not configured yet.</p>
 
         <div className="mt-6 overflow-x-auto rounded-lg border border-white/10 bg-zinc-950">
           {loading ? (

@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { FaCheckCircle } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
-import { imageFileToDataUrl } from "../lib/uploads";
 
 const SKILL_LEVELS = [
   "Beginner (2.5-3.0)",
@@ -31,7 +30,6 @@ const INITIAL_FORM = {
   instagram: "",
   youtube: "",
   website: "",
-  avatarUrl: "",
   bio: "",
   turnaroundHours: 72,
 };
@@ -39,6 +37,13 @@ const INITIAL_FORM = {
 function cleanNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
+}
+
+function cleanDupr(value) {
+  const raw = String(value || "").trim();
+  if (!raw || raw.toLowerCase() === "nr" || raw.toLowerCase() === "not rated" || raw.toLowerCase() === "not ranked") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
 }
 
 function cleanArray(value) {
@@ -84,19 +89,7 @@ export default function CoachSignup() {
 
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
-  const uploadProfilePhoto = async (file) => {
-    if (!file) return;
-
-    try {
-      const dataUrl = await imageFileToDataUrl(file);
-      update("avatarUrl", dataUrl);
-      push("Profile photo selected.", "success");
-    } catch (err) {
-      push(err.message || "Could not load that image.", "error");
-    }
-  };
-
-  const buildPayload = () => ({
+ const buildPayload = () => ({
     displayName: form.displayName.trim(),
     fullName: form.displayName.trim(),
     name: form.displayName.trim(),
@@ -114,12 +107,11 @@ export default function CoachSignup() {
     playingExperienceYears: cleanNumber(form.playingExperienceYears),
     coachingExperienceYears: cleanNumber(form.coachingExperienceYears),
     duprId: form.duprId.trim(),
-    duprSingles: form.duprSingles === "" ? "" : cleanNumber(form.duprSingles),
-    duprDoubles: form.duprDoubles === "" ? "" : cleanNumber(form.duprDoubles),
+    duprSingles: cleanDupr(form.duprSingles),
+    duprDoubles: cleanDupr(form.duprDoubles),
     instagram: form.instagram.trim(),
     youtube: form.youtube.trim(),
     website: form.website.trim(),
-    avatarUrl: form.avatarUrl,
     turnaroundHours: Math.max(cleanNumber(form.turnaroundHours), 24),
     acceptingInquiries: true,
     defaultPlatformFeePercent: 10,
@@ -167,7 +159,7 @@ export default function CoachSignup() {
 
           <div className="mt-6 space-y-3 text-sm text-gray-300">
             {[
-              "Profile photo, bio, DUPR ID, and social links",
+              "Bio, DUPR ID, NR rating option, and social links",
               "Skill categories based on DUPR ratings",
               "Online-only coaching services",
               "15-minute video upload limit",
@@ -190,7 +182,7 @@ export default function CoachSignup() {
           )}
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link to="/coaches" className="pp-btn-primary px-5 py-3 text-center">
+            <Link to="/coaches" className="pp-btn-secondary px-6 py-3 text-center">
               Browse Coaches
             </Link>
             <Link to="/contact" className="pp-btn-secondary px-6 py-3 text-center">
@@ -212,18 +204,6 @@ export default function CoachSignup() {
             <Field label="City" value={form.city} onChange={(v) => update("city", v)} required />
             <Field label="State" value={form.state} onChange={(v) => update("state", v)} required />
             <Field label="Country" value={form.country} onChange={(v) => update("country", v)} />
-            <label className="block md:col-span-2">
-              <span className="text-sm text-gray-400">Profile Photo Upload</span>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => uploadProfilePhoto(e.target.files?.[0])}
-                className="mt-1 w-full rounded-xl border border-white/10 bg-black p-3 file:mr-4 file:rounded-full file:border-0 file:bg-emerald-400 file:px-4 file:py-2 file:font-black file:text-black"
-              />
-              {form.avatarUrl && (
-                <img src={form.avatarUrl} alt="Coach profile preview" className="mt-3 h-44 w-full rounded-2xl object-cover" />
-              )}
-            </label>
           </div>
 
           <Section title="Experience" />
@@ -237,8 +217,8 @@ export default function CoachSignup() {
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="Headline" value={form.headline} onChange={(v) => update("headline", v)} required />
             <Field label="DUPR ID" value={form.duprId} onChange={(v) => update("duprId", v)} placeholder="Example: 7DVMM4" />
-            <Field label="DUPR Singles Rating" type="number" step="0.001" value={form.duprSingles} onChange={(v) => update("duprSingles", v)} />
-            <Field label="DUPR Doubles Rating" type="number" step="0.001" value={form.duprDoubles} onChange={(v) => update("duprDoubles", v)} />
+            <Field label="DUPR Singles Rating" value={form.duprSingles} onChange={(v) => update("duprSingles", v)} placeholder="Example: 4.125 or NR" />
+            <Field label="DUPR Doubles Rating" value={form.duprDoubles} onChange={(v) => update("duprDoubles", v)} placeholder="Example: 4.500 or NR" />
             <Field label="Areas of Specialization" value={form.specialties} onChange={(v) => update("specialties", v)} className="md:col-span-2" required />
 
             <label className="block md:col-span-2">
@@ -280,7 +260,7 @@ export default function CoachSignup() {
 
           <button
             disabled={busy || !user || !requiredComplete}
-            className="pp-btn-primary mt-8 w-full px-6 py-4 disabled:opacity-60"
+            className="mt-8 w-full rounded-xl bg-emerald-400 px-6 py-4 font-black text-black hover:bg-emerald-300 disabled:opacity-60"
           >
             {busy ? "Submitting application..." : user ? "Submit Coach Application" : "Sign in required"}
           </button>

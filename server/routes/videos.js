@@ -26,10 +26,7 @@ function mockUploadsEnabled() {
 }
 
 function cloudflareConfigured() {
-  return Boolean(
-    String(process.env.CLOUDFLARE_ACCOUNT_ID || "").trim() &&
-      String(process.env.CLOUDFLARE_STREAM_TOKEN || "").trim()
-  );
+  return Boolean(String(process.env.CLOUDFLARE_ACCOUNT_ID || "").trim() && String(process.env.CLOUDFLARE_STREAM_TOKEN || "").trim());
 }
 
 function maxVideoMinutes() {
@@ -85,22 +82,16 @@ async function createCloudflareUpload(maxDurationSeconds = 900) {
   };
 
   const allowedOrigins = safeAllowedOriginHosts();
+  if (allowedOrigins.length) body.allowedOrigins = allowedOrigins;
 
-  if (allowedOrigins.length) {
-    body.allowedOrigins = allowedOrigins;
-  }
-
-  const response = await fetch(
-    `https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/direct_upload`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${accountId}/stream/direct_upload`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
 
   const data = await response.json().catch(() => ({}));
 
@@ -294,21 +285,15 @@ router.post(
     }
 
     if (videoUploadsMode() === "disabled" || !cloudflareConfigured()) {
-      return res.status(503).json({
-        error: "Video uploads are not configured. Please contact support.",
-      });
+      return res.status(503).json({ error: "Video uploads are not configured. Please contact support." });
     }
 
     const upload = await createCloudflareUpload(maxDurationSeconds);
-
     const uploadUrl = upload?.uploadURL || upload?.uploadUrl || upload?.url;
     const uploadId = upload?.uid || upload?.id || upload?.video?.uid;
 
     if (!uploadUrl || !uploadId) {
-      return res.status(502).json({
-        error: "Cloudflare did not return a valid upload URL.",
-        cloudflareResult: upload || null,
-      });
+      return res.status(502).json({ error: "Cloudflare did not return a valid upload URL.", cloudflareResult: upload || null });
     }
 
     row.provider = "cloudflare";
@@ -355,19 +340,13 @@ router.put(
     if (assetId !== undefined) row.assetId = assetId;
     if (playbackId !== undefined) row.playbackId = playbackId;
     if (thumbnailUrl !== undefined) row.thumbnailUrl = thumbnailUrl;
-
     if (durationSeconds !== undefined) {
       const duration = Number(durationSeconds);
-
       if (duration > 15 * 60) {
-        return res.status(400).json({
-          error: "Videos must be 15 minutes or shorter. Please trim your clip and upload again.",
-        });
+        return res.status(400).json({ error: "Videos must be 15 minutes or shorter. Please trim your clip and upload again." });
       }
-
       row.durationSeconds = duration;
     }
-
     row.status = status || "ready_for_review";
 
     await row.save();

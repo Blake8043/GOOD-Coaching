@@ -262,6 +262,20 @@ router.put(
   })
 );
 
+router.delete(
+  "/me/packages/:packageId",
+  auth,
+  asyncHandler(async (req, res) => {
+    const profile = await CoachProfile.findOne({ userId: req.user._id });
+    if (!profile) return res.status(404).json({ error: "Coach profile not found" });
+
+    const pkg = await CoachingPackage.findOneAndDelete({ _id: req.params.packageId, coachId: profile._id });
+    if (!pkg) return res.status(404).json({ error: "Package not found" });
+
+    res.json({ ok: true });
+  })
+);
+
 router.get(
   "/dashboard",
   auth,

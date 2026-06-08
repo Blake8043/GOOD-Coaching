@@ -202,6 +202,20 @@ export default function AdminOrders() {
     });
   }, [orders, query, statusFilter]);
 
+  const deleteOrder = async (order) => {
+    if (!order?._id || !window.confirm("Delete this order from the admin list? This also removes its linked submission and split record.")) return;
+    setBusy(true);
+    try {
+      await api.delete(`/admin/orders/${order._id}`, token);
+      push("Order removed.", "success");
+      await load();
+    } catch (err) {
+      push(err.message || "Order could not be removed.", "error");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const stats = useMemo(() => {
     const paid = orders.filter((order) => String(order.status || "").toLowerCase() === "paid");
     const pending = orders.filter((order) =>
@@ -227,29 +241,22 @@ export default function AdminOrders() {
   return (
     <div className="pp-app-shell px-6 pt-32 pb-16">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-[2rem] bg-[#12372a] p-7 shadow-xl shadow-[#12372a]/15">
-          <p
-            className="text-xs font-black uppercase tracking-[0.24em]"
-            style={{ color: "#c6ff4a" }}
-          >
-            Admin
-          </p>
+        <header className="rounded-[2rem] bg-[#12372a] p-7 text-white shadow-xl shadow-[#12372a]/15">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#c6ff4a]">Admin</p>
 
           <div className="mt-2 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
             <div>
-              <h1
-                className="text-4xl font-black"
-                style={{ color: "#ffffff" }}
-              >
-                Manage Orders
-              </h1>
+              <h1 className="text-4xl font-black text-white">Manage Orders</h1>
 
-              <p
-                className="mt-2 max-w-3xl text-sm font-semibold leading-6"
-                style={{ color: "rgba(255,255,255,0.84)" }}
-              >
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-white/80">
                 Review customer payments, order status, Stripe references, platform fees, and linked video submissions.
               </p>
+
+              {loadedEndpoint && (
+                <p className="mt-2 text-xs font-bold text-[#c6ff4a]">
+                  Loaded from API route: {loadedEndpoint}
+                </p>
+              )}
             </div>
 
             <button
@@ -385,7 +392,10 @@ export default function AdminOrders() {
                       <div className="mt-1 text-xl font-black text-[#12372a]">{selected.number || selected._id}</div>
                     </div>
 
-                    <StatusBadge status={selected.status} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge status={selected.status} />
+                      <button type="button" onClick={() => deleteOrder(selected)} className="rounded-full bg-[#ffebe5] px-3 py-1 text-xs font-black text-[#7a2b18]">Remove order</button>
+                    </div>
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">

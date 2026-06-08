@@ -13,17 +13,7 @@ const steps = [
   { title: "Get reviewed", text: "Receive timestamped notes, drills, strengths, and a complete improvement plan." },
 ];
 
-const specialties = [
-  "Doubles strategy",
-  "Third-shot selection",
-  "Serve + return",
-  "Drops",
-  "Resets",
-  "Tournament prep",
-  "Beginner fundamentals",
-  "Singles strategy",
-  "Advanced shots",
-];
+const specialties = ["Doubles strategy", "Third-shot selection", "Serve + return", "Resets", "Tournament prep", "Beginner fundamentals", "Singles strategy", "Advanced shots"];
 
 export default function Home() {
   return (
@@ -41,7 +31,6 @@ export default function Home() {
             <h1 className="max-w-4xl text-5xl font-black leading-tight text-[#12372a] md:text-7xl">
               Sharpen your pickleball game with coach-reviewed video feedback.
             </h1>
-
             <p className="mt-6 max-w-2xl text-lg leading-8 text-[#5f746c]">
               Players upload match footage. Coaches deliver timestamped notes, drills, and strategy from one bright, easy dashboard.
             </p>
@@ -55,13 +44,9 @@ export default function Home() {
                 Become a Coach
               </Link>
             </div>
-
             <div className="mt-8 grid gap-3 text-sm font-bold text-[#5f746c] sm:grid-cols-3">
               {["Direct coach communication", "Private video submissions", "Timestamped improvement plans", "Personalized drill plans", "Live coach chat", "Training packages"].map((item) => (
-                <div key={item} className="flex items-center gap-2 whitespace-nowrap">
-                  <FaCheckCircle className="shrink-0 text-[#00a896]" />
-                  {item}
-                </div>
+                <div key={item} className="flex min-h-10 items-center gap-3 rounded-2xl bg-white/85 px-4 py-2 whitespace-nowrap"><FaCheckCircle className="h-4 w-4 shrink-0 text-[#00a896]" /> {item}</div>
               ))}
             </div>
           </div>
@@ -142,10 +127,7 @@ export default function Home() {
               A complete paid review loop
             </h2>
           </div>
-
-          <Link to="/coaches" className="pp-btn-primary px-5 py-3">
-            Browse coaching options
-          </Link>
+          <Link to="/coaches" className="pp-btn-primary px-5 py-3">Browse coaching options</Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-4">
@@ -168,13 +150,8 @@ export default function Home() {
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
             <div>
               <div className="h-3 w-44 rounded-full bg-gradient-to-r from-[#12372a] via-[#087f73] to-[#c6ff4a]" />
-              <h2 className="mt-3 text-3xl font-black text-[#12372a]">
-                Built for busy coaches and players who want real online feedback.
-              </h2>
-
-              <p className="mt-3 leading-7 text-[#5f746c]">
-                Choose a coach, upload your gameplay, and receive clear feedback you can use in your next practice or match.
-              </p>
+              <h2 className="mt-3 text-3xl font-black text-[#12372a]">Built for busy coaches and players who want real online feedback.</h2>
+              <p className="mt-3 leading-7 text-[#5f746c]">Choose a coach, upload your gameplay, and receive clear feedback you can use in your next practice or match.</p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
