@@ -87,14 +87,14 @@ export default function AdminTestimonials() {
           <form onSubmit={save} className="rounded-lg border border-white/10 bg-zinc-950 p-6">
             <h2 className="text-xl font-bold">{editing ? "Edit testimonial" : "Add testimonial"}</h2>
             <div className="mt-5 grid gap-4">
-              <input value={form.name} onChange={(e) => set("name", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3" placeholder="Customer name" required />
-              <input value={form.location} onChange={(e) => set("location", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3" placeholder="Location" />
-              <input value={form.service} onChange={(e) => set("service", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3" placeholder="Service type" />
-              <select value={form.rating} onChange={(e) => set("rating", Number(e.target.value))} className="rounded-md border border-white/10 bg-zinc-900 p-3">
+              <input value={form.name} onChange={(e) => set("name", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white placeholder:text-gray-500" placeholder="Customer name" required />
+              <input value={form.location} onChange={(e) => set("location", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white placeholder:text-gray-500" placeholder="Location" />
+              <input value={form.service} onChange={(e) => set("service", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white placeholder:text-gray-500" placeholder="Service type" />
+              <select value={form.rating} onChange={(e) => set("rating", Number(e.target.value))} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white">
                 {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} stars</option>)}
               </select>
-              <textarea value={form.text} onChange={(e) => set("text", e.target.value)} rows={5} className="rounded-md border border-white/10 bg-zinc-900 p-3" placeholder="Customer feedback" required />
-              <select value={form.status} onChange={(e) => set("status", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3">
+              <textarea value={form.text} onChange={(e) => set("text", e.target.value)} rows={5} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white placeholder:text-gray-500" placeholder="Customer feedback" required />
+              <select value={form.status} onChange={(e) => set("status", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white">
                 <option value="published">Published</option>
                 <option value="draft">Draft</option>
               </select>

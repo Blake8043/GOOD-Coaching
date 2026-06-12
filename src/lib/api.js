@@ -5,7 +5,7 @@ const joinApiPath = (p) => `${API}${String(p || "").startsWith("/") ? p : `/${p}
 
 const handle = async (res) => {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || res.statusText);
+  if (!res.ok) throw new Error(data.error || data.message || res.statusText);
   return data;
 };
 
@@ -21,13 +21,13 @@ const request = (path, options = {}) =>
 
 const authHeaders = (token) => (token ? { Authorization: `Bearer ${token}` } : {});
 
-export const api = {
+const apiClient = {
   get: (p, token) =>
     request(p, {
       headers: authHeaders(token),
     }),
 
-  post: (p, body, token) =>
+  post: (p, body = {}, token) =>
     request(p, {
       method: "POST",
       headers: {
@@ -37,9 +37,19 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  put: (p, body, token) =>
+  put: (p, body = {}, token) =>
     request(p, {
       method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(token),
+      },
+      body: JSON.stringify(body),
+    }),
+
+  patch: (p, body = {}, token) =>
+    request(p, {
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json",
         ...authHeaders(token),
@@ -54,4 +64,9 @@ export const api = {
     }),
 };
 
+// Some pages used api.delete(...), while the helper originally only exposed api.del(...).
+// Keep both names so every remove/delete button works after the production build is minified.
+apiClient.delete = apiClient.del;
+
+export const api = apiClient;
 export const API_BASE = API;

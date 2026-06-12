@@ -2,6 +2,7 @@ const router = require("express").Router();
 const { auth, allow } = require("../middleware/auth");
 const Inquiry = require("../models/Inquiry");
 const CoachProfile = require("../models/CoachProfile");
+const Ticket = require("../models/Ticket");
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const userIdOf = (req) => String(req.user?._id || req.user?.id || "");
@@ -109,12 +110,21 @@ router.get(
   "/notifications",
   auth,
   asyncHandler(async (req, res) => {
-    const coach = await CoachProfile.findOne({ userId: req.user._id }).select("_id");
-    const filter = coach ? { $or: [{ playerId: req.user._id }, { coachId: coach._id }] } : { playerId: req.user._id };
-    filter.deletedFor = { $ne: req.user._id };
-    filter.archivedFor = { $ne: req.user._id };
+    const role = String(req.user?.role || "").toLowerCase();
+    let openSupport = 0;
+    let filter;
 
-    const rows = await Inquiry.find(filter).select("subject messages status quote lastMessageAt").sort({ lastMessageAt: -1 }).limit(50);
+    if (role === "admin" || role === "employee") {
+      filter = {};
+      openSupport = await Ticket.countDocuments({ status: { $in: ["open", "in_progress"] } });
+    } else {
+      const coach = await CoachProfile.findOne({ userId: req.user._id }).select("_id");
+      filter = coach ? { $or: [{ playerId: req.user._id }, { coachId: coach._id }] } : { playerId: req.user._id };
+      filter.deletedFor = { $ne: req.user._id };
+      filter.archivedFor = { $ne: req.user._id };
+    }
+
+    const rows = await Inquiry.find(filter).select("subject messages status quote lastMessageAt").sort({ lastMessageAt: -1 }).limit(75);
     const uid = userIdOf(req);
     let unread = 0;
     rows.forEach((row) => {
@@ -123,7 +133,7 @@ router.get(
       });
     });
 
-    res.json({ unread, latest: rows[0] || null });
+    res.json({ unread, openSupport, latest: rows[0] || null });
   })
 );
 

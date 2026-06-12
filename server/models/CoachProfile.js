@@ -17,8 +17,8 @@ const coachProfileSchema = new mongoose.Schema(
     playingExperienceYears: { type: Number, default: 0 },
     coachingExperienceYears: { type: Number, default: 0 },
     duprId: { type: String, default: "", index: true },
-    duprSingles: { type: Number, default: null },
-    duprDoubles: { type: Number, default: null },
+    duprSingles: { type: String, default: "NR" },
+    duprDoubles: { type: String, default: "NR" },
     socialLinks: {
       instagram: { type: String, default: "" },
       youtube: { type: String, default: "" },

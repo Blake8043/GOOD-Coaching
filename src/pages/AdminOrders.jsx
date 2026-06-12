@@ -242,13 +242,13 @@ export default function AdminOrders() {
     <div className="pp-app-shell px-6 pt-32 pb-16">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="rounded-[2rem] bg-[#12372a] p-7 text-white shadow-xl shadow-[#12372a]/15">
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#c6ff4a]">Admin</p>
+          <p className="text-xs font-black uppercase tracking-[0.24em]" style={{ color: "#c6ff4a" }}>Admin</p>
 
           <div className="mt-2 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
             <div>
-              <h1 className="text-4xl font-black text-white">Manage Orders</h1>
+              <h1 className="text-4xl font-black" style={{ color: "#ffffff" }}>Manage Orders</h1>
 
-              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-white/80">
+              <p className="mt-2 max-w-3xl text-sm font-semibold leading-6" style={{ color: "rgba(255,255,255,0.84)" }}>
                 Review customer payments, order status, Stripe references, platform fees, and linked video submissions.
               </p>
 

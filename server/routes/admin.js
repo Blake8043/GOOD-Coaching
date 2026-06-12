@@ -113,6 +113,37 @@ router.get("/personalized-requests", async (_req, res) => {
   res.json(rows);
 });
 
+
+router.delete("/quotes/:id", async (req, res) => {
+  const sourceType = String(req.query.sourceType || "").trim();
+
+  if (sourceType === "personalized_request") {
+    const row = await Inquiry.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: { "quote.status": "draft" },
+        $unset: {
+          "quote.amount": "",
+          "quote.scope": "",
+          "quote.deliverables": "",
+          "quote.uploadInstructions": "",
+          "quote.sentAt": "",
+          "quote.approvedAt": "",
+          "quote.paidAt": "",
+          "quote.splitRecipients": "",
+        },
+      },
+      { new: true }
+    );
+    if (!row) return res.status(404).json({ error: "Personalized quote not found" });
+    return res.json({ ok: true });
+  }
+
+  const quote = await Quote.findByIdAndDelete(req.params.id);
+  if (!quote) return res.status(404).json({ error: "Quote not found" });
+  res.json({ ok: true });
+});
+
 router.get("/users", async (_req, res) => {
   const users = await User.find().select("-passwordHash").sort({ createdAt: -1 });
   res.json(users);

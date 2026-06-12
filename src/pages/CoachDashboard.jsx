@@ -460,8 +460,8 @@ export default function CoachDashboard() {
               <Input placeholder="Country" value={profileForm.country || ""} onChange={(value) => updateProfileField("country", value)} />
               <Input placeholder="Phone" value={profileForm.phone || ""} onChange={(value) => updateProfileField("phone", value)} />
               <Input placeholder="DUPR ID (example: 7DVMM4)" value={profileForm.duprId || ""} onChange={(value) => updateProfileField("duprId", value)} />
-              <Input type="number" step="0.001" placeholder="DUPR singles rating" value={profileForm.duprSingles ?? ""} onChange={(value) => updateProfileField("duprSingles", value)} />
-              <Input type="number" step="0.001" placeholder="DUPR doubles rating" value={profileForm.duprDoubles ?? ""} onChange={(value) => updateProfileField("duprDoubles", value)} />
+              <Input type="text" placeholder="DUPR singles rating, or NR" value={profileForm.duprSingles ?? ""} onChange={(value) => updateProfileField("duprSingles", value)} />
+              <Input type="text" placeholder="DUPR doubles rating, or NR" value={profileForm.duprDoubles ?? ""} onChange={(value) => updateProfileField("duprDoubles", value)} />
               <Input type="email" placeholder="Public contact email" value={profileForm.contactEmail || ""} onChange={(value) => updateProfileField("contactEmail", value)} />
               <Input placeholder="Areas of specialization, comma-separated" value={Array.isArray(profileForm.specialties) ? profileForm.specialties.join(", ") : profileForm.specialties || ""} onChange={(value) => updateProfileField("specialties", value)} className="md:col-span-2" />
               <Input placeholder="Instagram URL" value={profileForm.instagram || ""} onChange={(value) => updateProfileField("instagram", value)} />

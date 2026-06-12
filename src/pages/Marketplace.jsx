@@ -3,6 +3,16 @@ import { Link } from "react-router-dom";
 import { FaExternalLinkAlt, FaFilter, FaSearch, FaStar, FaVideo } from "react-icons/fa";
 import { api } from "../lib/api";
 
+
+function duprDisplay(value) {
+  if (value === null || value === undefined || value === "") return "NR";
+  const raw = String(value).trim();
+  if (!raw || ["0", "0.0", "0.00", "0.000"].includes(raw)) return "NR";
+  if (["nr", "n/r", "not rated", "not ranked"].includes(raw.toLowerCase())) return "NR";
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "") : raw;
+}
+
 function packageLabel(pkg) {
   const type = String(pkg?.reviewType || "").replaceAll("_", " ");
   if (["single_video", "match_breakdown", "doubles_strategy"].includes(pkg?.reviewType)) return "Video review";
@@ -105,7 +115,7 @@ export default function Marketplace() {
 
                   <div className="mt-5 rounded-2xl border border-[#00a896]/15 bg-[#d9f7fb]/75 p-4 text-sm font-bold text-[#29483d]">
                     <div>DUPR ID: {coach.duprId ? <a className="text-[#087f73] underline" href={coach.duprProfileUrl || `https://dashboard.dupr.com/dashboard/player/${coach.duprId}`} target="_blank" rel="noreferrer">{coach.duprId} <FaExternalLinkAlt className="inline" /></a> : "Not provided"}</div>
-                    <div className="mt-1">Singles: {coach.duprSingles ?? "Not provided"} • Doubles: {coach.duprDoubles ?? "Not provided"}</div>
+                    <div className="mt-1">Singles: {duprDisplay(coach.duprSingles)} • Doubles: {duprDisplay(coach.duprDoubles)}</div>
                     {coach.duprId && <div className="mt-1 text-xs font-semibold">Ratings are coach-entered. Open the DUPR profile to verify current ratings.</div>}
                   </div>
 

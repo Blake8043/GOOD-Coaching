@@ -1,10 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  FaCheckCircle,
-  FaCloudUploadAlt,
-  FaCreditCard,
-  FaUserTie,
-} from "react-icons/fa";
+import { FaCheckCircle, FaCloudUploadAlt, FaCreditCard, FaStar, FaUserTie } from "react-icons/fa";
+import { api } from "../lib/api";
 
 const steps = [
   { title: "Pick a coach", text: "Choose a coach by skill level, specialty, package, and turnaround time." },
@@ -13,9 +10,64 @@ const steps = [
   { title: "Get reviewed", text: "Receive timestamped notes, drills, strengths, and a complete improvement plan." },
 ];
 
-const specialties = ["Doubles strategy", "Third-shot selection", "Serve + return", "Resets", "Tournament prep", "Beginner fundamentals", "Singles strategy", "Advanced shots"];
+const heroBullets = [
+  "Direct coach communication",
+  "Private video submissions",
+  "Timestamped improvement plans",
+  "Personalized drill plans",
+  "Live coach chat",
+  "Training packages",
+];
+
+const specialties = [
+  "Doubles strategy",
+  "Third-shot selection",
+  "Serve + return",
+  "Drops",
+  "Resets",
+  "Tournament prep",
+  "Beginner fundamentals",
+  "Junior academy",
+  "Singles strategy",
+  "Advanced shots",
+];
+
+const fallbackTestimonials = [
+  {
+    _id: "home-fallback-1",
+    name: "Renee M.",
+    service: "Video analysis",
+    text: "The coach broke down my doubles match and gave me clear priorities for my next practice week.",
+    rating: 5,
+  },
+  {
+    _id: "home-fallback-2",
+    name: "Jason T.",
+    service: "Match review",
+    text: "The timestamped notes made it easy to understand what I was doing wrong and what to fix first.",
+    rating: 5,
+  },
+  {
+    _id: "home-fallback-3",
+    name: "Alicia R.",
+    service: "Training plan",
+    text: "My coach gave me a focused plan based on my DUPR level, goals, and uploaded footage.",
+    rating: 5,
+  },
+];
 
 export default function Home() {
+  const [testimonials, setTestimonials] = useState(fallbackTestimonials);
+
+  useEffect(() => {
+    api
+      .get("/testimonials")
+      .then((rows) => {
+        if (Array.isArray(rows) && rows.length) setTestimonials(rows.slice(0, 3));
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="pp-page">
       <section className="relative overflow-hidden px-6 pt-32 pb-20">
@@ -44,9 +96,16 @@ export default function Home() {
                 Become a Coach
               </Link>
             </div>
-            <div className="mt-8 grid gap-3 text-sm font-bold text-[#5f746c] sm:grid-cols-3">
-              {["Direct coach communication", "Private video submissions", "Timestamped improvement plans", "Personalized drill plans", "Live coach chat", "Training packages"].map((item) => (
-                <div key={item} className="flex min-h-10 items-center gap-3 rounded-2xl bg-white/85 px-4 py-2 whitespace-nowrap"><FaCheckCircle className="h-4 w-4 shrink-0 text-[#00a896]" /> {item}</div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {heroBullets.map((item) => (
+                <div
+                  key={item}
+                  className="flex min-h-[3.25rem] items-center gap-3 rounded-2xl bg-white/90 px-4 py-3 text-sm font-black leading-5 text-[#40584f] shadow-sm ring-1 ring-[#12372a]/5"
+                >
+                  <FaCheckCircle className="h-4 w-4 shrink-0 text-[#00a896]" />
+                  <span>{item}</span>
+                </div>
               ))}
             </div>
           </div>
@@ -145,7 +204,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-12 pb-20">
+      <section className="mx-auto max-w-7xl px-6 py-12">
         <div className="rounded-[2rem] border border-[#12372a]/10 bg-gradient-to-br from-[#fffef8] via-[#d9f7fb] to-[#fff1c7] p-8 shadow-2xl shadow-[#12372a]/10 md:p-10">
           <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
             <div>
@@ -154,7 +213,7 @@ export default function Home() {
               <p className="mt-3 leading-7 text-[#5f746c]">Choose a coach, upload your gameplay, and receive clear feedback you can use in your next practice or match.</p>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {specialties.map((item) => (
                 <span
                   key={item}
@@ -165,6 +224,30 @@ export default function Home() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-12 pb-20">
+        <div className="mb-8 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <p className="pp-kicker">Testimonials</p>
+            <h2 className="mt-2 text-3xl font-black text-[#12372a] md:text-5xl">What players say</h2>
+            <p className="mt-3 max-w-2xl text-[#5f746c]">Published testimonials from the admin portal appear here and on the testimonials page.</p>
+          </div>
+          <Link to="/testimonials" className="pp-btn-secondary px-5 py-3">View all testimonials</Link>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-3">
+          {testimonials.map((item) => (
+            <article key={item._id || item.name} className="rounded-3xl border border-[#12372a]/10 bg-white p-6 shadow-lg">
+              <div className="mb-4 flex gap-1 text-[#ffb703]">
+                {Array.from({ length: Math.max(Number(item.rating || 5), 1) }).slice(0, 5).map((_, i) => <FaStar key={i} />)}
+              </div>
+              <p className="leading-7 text-[#40584f]">“{item.text}”</p>
+              <div className="mt-5 font-black text-[#12372a]">{item.name}</div>
+              <div className="text-sm font-semibold text-[#5f746c]">{[item.service, item.location].filter(Boolean).join(" / ")}</div>
+            </article>
+          ))}
         </div>
       </section>
     </div>

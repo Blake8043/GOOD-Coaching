@@ -41,9 +41,9 @@ function cleanNumber(value) {
 
 function cleanDupr(value) {
   const raw = String(value || "").trim();
-  if (!raw || raw.toLowerCase() === "nr" || raw.toLowerCase() === "not rated" || raw.toLowerCase() === "not ranked") return null;
+  if (!raw || raw.toLowerCase() === "nr" || raw.toLowerCase() === "not rated" || raw.toLowerCase() === "not ranked") return "NR";
   const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
+  return Number.isFinite(n) && n > 0 ? n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "") : raw;
 }
 
 function cleanArray(value) {
@@ -182,7 +182,7 @@ export default function CoachSignup() {
           )}
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link to="/coaches" className="pp-btn-secondary px-6 py-3 text-center">
+            <Link to="/coaches" className="pp-btn-primary px-6 py-3 text-center">
               Browse Coaches
             </Link>
             <Link to="/contact" className="pp-btn-secondary px-6 py-3 text-center">

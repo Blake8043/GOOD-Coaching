@@ -28,6 +28,18 @@ function cleanSocialLinks(body = {}) {
   };
 }
 
+
+function cleanDuprRating(value, keepUndefined = false) {
+  if (value === undefined) return keepUndefined ? undefined : "NR";
+  const raw = String(value ?? "").trim();
+  if (!raw) return "NR";
+  const normalized = raw.toLowerCase();
+  if (["nr", "n/r", "not rated", "not ranked", "not ranked/rated"].includes(normalized)) return "NR";
+  const n = Number(raw);
+  if (Number.isFinite(n) && n > 0) return n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+  return raw.toUpperCase() === "NR" ? "NR" : raw;
+}
+
 function paidPublicPackageFilter(extra = {}) {
   return {
     ...extra,
@@ -67,6 +79,18 @@ function packageInput(body = {}) {
     throw error;
   }
   return { ...body, price, discountPercent: Math.min(Math.max(Number(body.discountPercent || 0), 0), 100), maxVideoMinutes: Math.min(Number(body.maxVideoMinutes || 15), 15) };
+}
+
+
+function coachReadiness(profile, packages = []) {
+  return {
+    hasProfile: Boolean(profile),
+    approved: Boolean(profile?.approved),
+    hasBio: Boolean(String(profile?.bio || "").trim()),
+    hasContactEmail: Boolean(String(profile?.contactEmail || "").trim()),
+    hasPayouts: Boolean(profile?.stripeAccountId && profile?.payoutsEnabled),
+    publishedPackages: (packages || []).filter((pkg) => pkg.active !== false && Number(pkg.price || 0) > 0).length,
+  };
 }
 
 function duprProfileUrl(duprId) {
@@ -150,8 +174,8 @@ const handleCoachApplication = asyncHandler(async (req, res) => {
       playingExperienceYears: Number(body.playingExperienceYears || body.yearsExperience || 0),
       coachingExperienceYears: Number(body.coachingExperienceYears || 0),
       duprId: String(body.duprId || "").trim(),
-      duprSingles: body.duprSingles === "" || body.duprSingles === undefined ? null : Number(body.duprSingles),
-      duprDoubles: body.duprDoubles === "" || body.duprDoubles === undefined ? null : Number(body.duprDoubles),
+      duprSingles: cleanDuprRating(body.duprSingles),
+      duprDoubles: cleanDuprRating(body.duprDoubles),
       socialLinks: cleanSocialLinks(body),
       turnaroundHours: Number(body.turnaroundHours || 48),
       introVideoUrl: body.introVideoUrl || "",
@@ -210,8 +234,8 @@ router.put(
       playingExperienceYears: body.playingExperienceYears !== undefined ? Number(body.playingExperienceYears) : undefined,
       coachingExperienceYears: body.coachingExperienceYears !== undefined ? Number(body.coachingExperienceYears) : undefined,
       duprId: body.duprId !== undefined ? String(body.duprId || "").trim() : undefined,
-      duprSingles: body.duprSingles !== undefined && body.duprSingles !== "" ? Number(body.duprSingles) : body.duprSingles === "" ? null : undefined,
-      duprDoubles: body.duprDoubles !== undefined && body.duprDoubles !== "" ? Number(body.duprDoubles) : body.duprDoubles === "" ? null : undefined,
+      duprSingles: cleanDuprRating(body.duprSingles, true),
+      duprDoubles: cleanDuprRating(body.duprDoubles, true),
       socialLinks: ["socialLinks", "instagram", "youtube", "facebook", "tiktok", "website"].some((key) => Object.prototype.hasOwnProperty.call(body, key)) ? cleanSocialLinks(body) : undefined,
       turnaroundHours: body.turnaroundHours !== undefined ? Number(body.turnaroundHours) : undefined,
       avatarUrl: body.avatarUrl,
