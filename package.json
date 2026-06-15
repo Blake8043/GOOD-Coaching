@@ -12,7 +12,7 @@
     "prebuild": "npm run check:conflicts",
     "build": "vite build",
     "preview": "vite preview",
-    "railway:build": "npm install --include=dev && npm ci --prefix server --omit=dev && npm run build",
+    "railway:build": "npm install --include=dev --registry=https://registry.npmjs.org/ && npm install --prefix server --omit=dev --package-lock=false --registry=https://registry.npmjs.org/ && npm run build",
     "railway:start": "npm start --prefix server"
   },
   "devDependencies": {
