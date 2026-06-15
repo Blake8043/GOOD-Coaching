@@ -15,6 +15,17 @@ function mailtoFor(row) {
   return `mailto:${email}?subject=${subject}&body=${body}`;
 }
 
+
+function emailDeliveryNote(row) {
+  if (row.emailSent) return "Sent";
+  const raw = String(row.emailError || "");
+  if (!raw) return "Saved in support inbox only.";
+  if (raw.includes("Support email is not configured")) {
+    return "Saved in support inbox only. Email provider is not connected yet.";
+  }
+  return `Saved in support inbox only. Email send issue: ${raw}`;
+}
+
 function statusClass(status) {
   const value = String(status || "open");
   if (value === "resolved" || value === "closed") return "bg-[#c6ff4a] text-[#12372a]";
@@ -112,7 +123,7 @@ export default function AdminTickets() {
                       {row.emailSent ? (
                         <span className="rounded-full bg-emerald-400 px-2 py-1 text-xs font-black text-black">Sent</span>
                       ) : (
-                        <div className="max-w-xs text-xs text-amber-300">Saved only{row.emailError ? `: ${row.emailError}` : ""}</div>
+                        <div className="max-w-xs text-xs text-amber-300">{emailDeliveryNote(row)}</div>
                       )}
                     </td>
                     <td className="px-4 py-3 capitalize">

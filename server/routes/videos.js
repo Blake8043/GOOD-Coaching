@@ -26,7 +26,7 @@ function mockUploadsEnabled() {
 }
 
 function cloudflareConfigured() {
-  return Boolean(String(process.env.CLOUDFLARE_ACCOUNT_ID || "").trim() && String(process.env.CLOUDFLARE_STREAM_TOKEN || "").trim());
+  return Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_STREAM_TOKEN);
 }
 
 function maxVideoMinutes() {
@@ -67,8 +67,8 @@ function safeAllowedOriginHosts() {
 }
 
 async function createCloudflareUpload(maxDurationSeconds = 900) {
-  const accountId = String(process.env.CLOUDFLARE_ACCOUNT_ID || "").trim();
-  const token = String(process.env.CLOUDFLARE_STREAM_TOKEN || "").trim();
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const token = process.env.CLOUDFLARE_STREAM_TOKEN;
 
   if (!accountId || !token) return null;
 
@@ -90,7 +90,11 @@ async function createCloudflareUpload(maxDurationSeconds = 900) {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      maxDurationSeconds,
+      requireSignedURLs: false,
+      allowedOrigins: configuredClientOrigins().map((origin) => new URL(origin).hostname),
+    }),
   });
 
   const data = await response.json().catch(() => ({}));
@@ -261,8 +265,8 @@ router.post(
       return res.status(400).json({ error: `Cannot upload while submission is ${row.status}` });
     }
 
-    const maxMinutes = Math.min(Number(row.packageId?.maxVideoMinutes || maxVideoMinutes()), maxVideoMinutes());
-    const maxDurationSeconds = maxMinutes * 60;
+    const maxMinutes = Math.min(Number(row.packageId?.maxVideoMinutes || 15), 15);
+    const upload = await createCloudflareUpload(maxMinutes * 60);
 
     if (mockUploadsEnabled()) {
       const base = publicBaseUrl(req) || "";
@@ -284,36 +288,7 @@ router.post(
       });
     }
 
-    if (videoUploadsMode() === "disabled" || !cloudflareConfigured()) {
-      return res.status(503).json({ error: "Video uploads are not configured. Please contact support." });
-    }
-
-    const upload = await createCloudflareUpload(maxDurationSeconds);
-    const uploadUrl = upload?.uploadURL || upload?.uploadUrl || upload?.url;
-    const uploadId = upload?.uid || upload?.id || upload?.video?.uid;
-
-    if (!uploadUrl || !uploadId) {
-      return res.status(502).json({ error: "Cloudflare did not return a valid upload URL.", cloudflareResult: upload || null });
-    }
-
-    row.provider = "cloudflare";
-    row.uploadUrl = uploadUrl;
-    row.uploadId = uploadId;
-    row.assetId = uploadId;
-    row.playbackId = uploadId;
-    row.status = "uploading";
-
-    await row.save();
-
-    return res.json({
-      provider: "cloudflare",
-      uploadUrl,
-      uploadId,
-      uid: uploadId,
-      maxDurationSeconds,
-      mock: false,
-      submission: row,
-    });
+    return res.status(503).json({ error: "Video uploads are not configured. Please contact support." });
   })
 );
 

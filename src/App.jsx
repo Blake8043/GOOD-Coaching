@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from "rea
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 import FloatingQuickQuote from "./components/FloatingQuickQuote";
-import NotificationBell from "./components/NotificationBell";
 
 import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./components/Toast";
@@ -269,7 +268,6 @@ export default function App() {
             </main>
 
             <FloatingQuickQuote />
-            <NotificationBell />
             <Footer />
           </div>
         </AuthProvider>

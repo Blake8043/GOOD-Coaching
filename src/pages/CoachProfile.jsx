@@ -462,10 +462,26 @@ function Field({ label, wide, children }) {
 
 function Social({ href, icon, label }) {
   if (!href) return null;
+
   const url = /^https?:\/\//i.test(href) ? href : `https://${href}`;
+  const tone = {
+    Instagram: "text-[#E4405F]",
+    YouTube: "text-[#FF0000]",
+    Facebook: "text-[#1877F2]",
+    TikTok: "text-[#111827]",
+    Website: "text-[#087f73]",
+  }[label] || "text-[#12372a]";
+
   return (
-    <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-full border border-[#12372a]/10 bg-white px-4 py-2 text-sm font-black text-[#12372a] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eaf9f7]">
-      {icon} {label}
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      title={label}
+      aria-label={label}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl ${tone} shadow-sm ring-1 ring-[#12372a]/10 transition hover:-translate-y-0.5 hover:bg-[#fffdf6]`}
+    >
+      {icon}
     </a>
   );
 }

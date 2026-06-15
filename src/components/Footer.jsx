@@ -21,11 +21,11 @@ export default function Footer() {
           </p>
           <div className="mt-5 flex gap-3">
             <a
-              href="https://www.instagram.com/"
+              href="https://www.instagram.com/good.pb.coaching"
               target="_blank"
               rel="noreferrer"
               className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl text-[#E4405F] shadow-sm ring-1 ring-[#12372a]/10 transition hover:-translate-y-0.5"
-              aria-label="Instagram"
+              aria-label="GOOD Coaching Instagram"
             >
               <FaInstagram />
             </a>
