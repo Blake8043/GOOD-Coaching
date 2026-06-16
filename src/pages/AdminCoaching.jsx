@@ -98,8 +98,8 @@ export default function AdminCoaching() {
           <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
             <div>
               <p className="text-xs font-black uppercase tracking-[.22em] text-[#c6ff4a]">Admin marketplace control</p>
-              <h1 className="mt-2 text-4xl font-black text-white">Coach operations</h1>
-              <p className="mt-2 max-w-2xl text-white/75">
+              <h1 className="mt-2 text-4xl font-black" style={{ color: "#ffffff" }}>Coach Operations</h1>
+              <p className="mt-2 max-w-2xl" style={{ color: "rgba(255,255,255,0.86)" }}>
                 Approve providers, review full applications, monitor fulfillment, and investigate coaching activity.
               </p>
             </div>
