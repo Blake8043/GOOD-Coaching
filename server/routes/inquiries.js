@@ -5,17 +5,10 @@ const CoachProfile = require("../models/CoachProfile");
 const Ticket = require("../models/Ticket");
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
-const userIdOf = (req) => String(req.user?._id || req.user?.id || "");
 
-const populate = (query) =>
-  query
-    .populate("playerId", "fullName email phone")
-    .populate({
-      path: "coachId",
-      select: "displayName avatarUrl contactEmail userId presenceStatus acceptingInquiries stripeAccountId payoutsEnabled stripeOnboardingComplete",
-      populate: { path: "userId", select: "email fullName" },
-    })
-    .populate("quote.splitRecipients.coachId", "displayName stripeAccountId payoutsEnabled stripeOnboardingComplete");
+function userIdOf(req) {
+  return String(req.user?._id || req.user?.id || "");
+}
 
 function same(a, b) {
   return String(a || "") === String(b || "");
@@ -23,6 +16,17 @@ function same(a, b) {
 
 function cleanBody(value, max = 5000) {
   return String(value || "").trim().slice(0, max);
+}
+
+function populate(query) {
+  return query
+    .populate("playerId", "fullName email phone")
+    .populate({
+      path: "coachId",
+      select: "displayName avatarUrl contactEmail userId presenceStatus acceptingInquiries stripeAccountId payoutsEnabled stripeOnboardingComplete",
+      populate: { path: "userId", select: "email fullName" },
+    })
+    .populate("quote.splitRecipients.coachId", "displayName stripeAccountId payoutsEnabled stripeOnboardingComplete");
 }
 
 function userCanSee(row, req) {
@@ -71,6 +75,7 @@ async function access(req, id) {
 
 function cleanSplitRecipients(value = []) {
   if (!Array.isArray(value)) return [];
+
   const rows = value
     .map((item) => ({
       coachId: cleanBody(item?.coachId || item?.recipientCoachId, 80),
@@ -81,6 +86,7 @@ function cleanSplitRecipients(value = []) {
     .slice(0, 5);
 
   const total = rows.reduce((sum, item) => sum + item.percentage, 0);
+
   if (total > 100) {
     const error = new Error("Split percentages cannot exceed 100% of the coach payout.");
     error.statusCode = 400;
@@ -94,12 +100,13 @@ router.get(
   "/my",
   auth,
   asyncHandler(async (req, res) => {
-    const coach = await CoachProfile.findOne({ userId: req.user._id });
+    const currentUserId = userIdOf(req);
+    const coach = await CoachProfile.findOne({ userId: currentUserId }).select("_id");
     const includeArchived = req.query.archived === "1";
-    const filter = coach ? { $or: [{ playerId: req.user._id }, { coachId: coach._id }] } : { playerId: req.user._id };
+    const filter = coach ? { $or: [{ playerId: currentUserId }, { coachId: coach._id }] } : { playerId: currentUserId };
 
-    if (!includeArchived) filter.archivedFor = { $ne: req.user._id };
-    filter.deletedFor = { $ne: req.user._id };
+    if (!includeArchived) filter.archivedFor = { $ne: currentUserId };
+    filter.deletedFor = { $ne: currentUserId };
 
     const rows = await populate(Inquiry.find(filter).sort({ lastMessageAt: -1, updatedAt: -1 }));
     res.json(rows.map((row) => decorate(row, req)));
@@ -118,18 +125,21 @@ router.get(
       filter = {};
       openSupport = await Ticket.countDocuments({ status: { $in: ["open", "in_progress"] } });
     } else {
-      const coach = await CoachProfile.findOne({ userId: req.user._id }).select("_id");
-      filter = coach ? { $or: [{ playerId: req.user._id }, { coachId: coach._id }] } : { playerId: req.user._id };
-      filter.deletedFor = { $ne: req.user._id };
-      filter.archivedFor = { $ne: req.user._id };
+      const coach = await CoachProfile.findOne({ userId: userIdOf(req) }).select("_id");
+      filter = coach ? { $or: [{ playerId: userIdOf(req) }, { coachId: coach._id }] } : { playerId: userIdOf(req) };
+      filter.deletedFor = { $ne: userIdOf(req) };
+      filter.archivedFor = { $ne: userIdOf(req) };
     }
 
     const rows = await Inquiry.find(filter).select("subject messages status quote lastMessageAt").sort({ lastMessageAt: -1 }).limit(75);
     const uid = userIdOf(req);
     let unread = 0;
+
     rows.forEach((row) => {
       (row.messages || []).forEach((msg) => {
-        if (!same(msg.senderId, uid) && !(msg.readBy || []).some((id) => same(id, uid)) && !(msg.deletedFor || []).some((id) => same(id, uid))) unread += 1;
+        if (!same(msg.senderId, uid) && !(msg.readBy || []).some((id) => same(id, uid)) && !(msg.deletedFor || []).some((id) => same(id, uid))) {
+          unread += 1;
+        }
       });
     });
 
@@ -146,6 +156,7 @@ router.post(
     const coach = coachId ? await CoachProfile.findById(coachId) : null;
     const subject = cleanBody(req.body?.subject || "Coaching inquiry", 200);
     const body = cleanBody(req.body?.message);
+
     const requestedServices = Array.isArray(req.body?.requestedServices)
       ? req.body.requestedServices.map((item) => cleanBody(item, 160)).filter(Boolean).slice(0, 12)
       : [];
@@ -159,6 +170,7 @@ router.post(
       coachId: coach._id,
       playerId: currentUserId,
       status: { $in: ["open", "quoted", "approved"] },
+      deletedFor: { $ne: currentUserId },
     }).sort({ updatedAt: -1 });
 
     const message = { senderId: currentUserId, body, readBy: [currentUserId] };
@@ -169,7 +181,7 @@ router.post(
       existing.messages.push(message);
       existing.lastMessageAt = new Date();
       existing.archivedFor = [];
-      existing.deletedFor = (existing.deletedFor || []).filter((id) => !same(id, currentUserId) && !same(id, coach.userId));
+      existing.deletedFor = [];
       if (["archived", "closed"].includes(existing.status)) existing.status = "open";
       await existing.save();
       return res.json(decorate(await populate(Inquiry.findById(existing._id)), req));
@@ -182,6 +194,8 @@ router.post(
       requestedServices,
       lastMessageAt: new Date(),
       messages: [message],
+      archivedFor: [],
+      deletedFor: [],
     });
 
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
@@ -207,14 +221,16 @@ router.post(
     if (row === false) return res.status(403).json({ error: "Forbidden" });
     if (!row) return res.status(404).json({ error: "Inquiry not found" });
 
-    const uid = req.user._id;
+    const uid = userIdOf(req);
     let changed = false;
+
     row.messages.forEach((msg) => {
       if (!same(msg.senderId, uid) && !(msg.readBy || []).some((id) => same(id, uid))) {
         msg.readBy.push(uid);
         changed = true;
       }
     });
+
     if (changed) await row.save();
 
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
@@ -228,13 +244,15 @@ router.post(
     const row = await access(req, req.params.id);
     if (row === false) return res.status(403).json({ error: "Forbidden" });
     if (!row) return res.status(404).json({ error: "Inquiry not found" });
+
     const body = cleanBody(req.body?.message);
     if (!body) return res.status(400).json({ error: "Message is required" });
 
-    row.messages.push({ senderId: req.user._id, body, readBy: [req.user._id] });
+    row.messages.push({ senderId: userIdOf(req), body, readBy: [userIdOf(req)] });
     row.lastMessageAt = new Date();
     row.archivedFor = [];
     if (row.status === "archived" || row.status === "closed") row.status = "open";
+
     await row.save();
 
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
@@ -248,7 +266,11 @@ router.post(
     const row = await access(req, req.params.id);
     if (row === false) return res.status(403).json({ error: "Forbidden" });
     if (!row) return res.status(404).json({ error: "Inquiry not found" });
-    if (!(row.archivedFor || []).some((id) => same(id, req.user._id))) row.archivedFor.push(req.user._id);
+
+    if (!(row.archivedFor || []).some((id) => same(id, userIdOf(req)))) {
+      row.archivedFor.push(userIdOf(req));
+    }
+
     await row.save();
     res.json({ ok: true });
   })
@@ -258,12 +280,13 @@ router.delete(
   "/:id",
   auth,
   asyncHandler(async (req, res) => {
-    const row = await access(req, req.params.id);
-    if (row === false) return res.status(403).json({ error: "Forbidden" });
-    if (!row) return res.status(404).json({ error: "Inquiry not found" });
-    if (!(row.deletedFor || []).some((id) => same(id, req.user._id))) row.deletedFor.push(req.user._id);
-    await row.save();
-    res.json({ ok: true });
+    const row = await populate(Inquiry.findById(req.params.id));
+    if (!row) return res.json({ ok: true, deleted: true });
+    if (!userCanSee(row, req)) return res.status(403).json({ error: "Forbidden" });
+
+    await Inquiry.deleteOne({ _id: row._id });
+
+    res.json({ ok: true, deleted: true });
   })
 );
 
@@ -274,10 +297,15 @@ router.delete(
     const row = await access(req, req.params.id);
     if (row === false) return res.status(403).json({ error: "Forbidden" });
     if (!row) return res.status(404).json({ error: "Inquiry not found" });
+
     const msg = row.messages.id(req.params.messageId);
     if (!msg) return res.status(404).json({ error: "Message not found" });
-    if (!same(msg.senderId, req.user._id) && req.user.role !== "admin") return res.status(403).json({ error: "Only the sender can delete this message." });
-    if (!(msg.deletedFor || []).some((id) => same(id, req.user._id))) msg.deletedFor.push(req.user._id);
+    if (!same(msg.senderId, userIdOf(req)) && req.user.role !== "admin") return res.status(403).json({ error: "Only the sender can delete this message." });
+
+    if (!(msg.deletedFor || []).some((id) => same(id, userIdOf(req)))) {
+      msg.deletedFor.push(userIdOf(req));
+    }
+
     await row.save();
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
   })
@@ -304,10 +332,13 @@ router.post(
       status: "sent",
       sentAt: new Date(),
     };
+
     row.status = "quoted";
     row.lastMessageAt = new Date();
     row.archivedFor = [];
+
     await row.save();
+
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
   })
 );
@@ -320,38 +351,17 @@ router.post(
     if (!row) return res.status(row === false ? 403 : 404).json({ error: "Inquiry not found" });
     if (!userIsPlayer(row, req)) return res.status(403).json({ error: "Only the customer can approve this quote." });
     if (row.quote?.status !== "sent") return res.status(400).json({ error: "There is no quote waiting for approval." });
+
     row.quote.status = "approved";
     row.quote.approvedAt = new Date();
     row.status = "approved";
-    await row.save();
-    res.json({ inquiry: decorate(await populate(Inquiry.findById(row._id)), req), paymentNextStep: "Quote approved. You can now continue to secure checkout." });
-  })
-);
 
-router.post(
-  "/:id/quote/decline",
-  auth,
-  asyncHandler(async (req, res) => {
-    const row = await access(req, req.params.id);
-    if (!row) return res.status(row === false ? 403 : 404).json({ error: "Inquiry not found" });
-    if (!userIsPlayer(row, req)) return res.status(403).json({ error: "Only the customer can decline this quote." });
-    if (row.quote?.status !== "sent") return res.status(400).json({ error: "There is no quote waiting for a response." });
-    row.quote.status = "declined";
-    row.status = "open";
-    row.messages.push({ senderId: req.user._id, body: cleanBody(req.body?.message || "Quote declined. Please revise the scope or amount."), readBy: [req.user._id] });
-    row.lastMessageAt = new Date();
     await row.save();
-    res.json(decorate(await populate(Inquiry.findById(row._id)), req));
-  })
-);
 
-router.get(
-  "/admin/all",
-  auth,
-  allow("admin", "employee"),
-  asyncHandler(async (_req, res) => {
-    const rows = await populate(Inquiry.find({}).sort({ updatedAt: -1 }).limit(300));
-    res.json(rows);
+    res.json({
+      inquiry: decorate(await populate(Inquiry.findById(row._id)), req),
+      paymentNextStep: "Quote approved. You can now continue to secure checkout.",
+    });
   })
 );
 
