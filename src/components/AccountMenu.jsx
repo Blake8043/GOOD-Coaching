@@ -64,9 +64,15 @@ function userImage(user) {
 }
 
 function notificationTotal(value) {
+  const total = Number(value?.total);
+  if (Number.isFinite(total)) return Math.max(0, total);
+
   const unread = Number(value?.unread || 0);
-  const openSupport = Number(value?.openSupport || 0);
-  return Math.max(0, unread + openSupport);
+  const messages = Number(value?.messages || 0);
+  const support = Number(value?.support || value?.openSupport || 0);
+  const payments = Number(value?.payments || 0);
+
+  return Math.max(0, unread + messages + support + payments);
 }
 
 export default function AccountMenu() {
@@ -74,7 +80,7 @@ export default function AccountMenu() {
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
   const [coachAvatarUrl, setCoachAvatarUrl] = useState("");
-  const [notifications, setNotifications] = useState({ unread: 0, openSupport: 0 });
+  const [notifications, setNotifications] = useState({ total: 0, unread: 0, messages: 0, support: 0, payments: 0 });
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -110,26 +116,45 @@ export default function AccountMenu() {
 
     const loadNotifications = () => {
       if (!token) {
-        setNotifications({ unread: 0, openSupport: 0 });
+        setNotifications({ total: 0, unread: 0, messages: 0, support: 0, payments: 0 });
         return;
       }
 
       api
-        .get("/inquiries/notifications", token)
+        .get("/notifications/summary", token)
         .then((data) => {
           if (!alive) return;
           setNotifications({
+            total: Number(data?.total || 0),
             unread: Number(data?.unread || 0),
-            openSupport: Number(data?.openSupport || 0),
+            messages: Number(data?.messages || 0),
+            support: Number(data?.support || 0),
+            payments: Number(data?.payments || 0),
+            latest: data?.latest || [],
           });
         })
         .catch(() => {
-          if (alive) setNotifications({ unread: 0, openSupport: 0 });
+          if (!alive) return;
+          api
+            .get("/inquiries/notifications", token)
+            .then((data) => {
+              if (!alive) return;
+              setNotifications({
+                total: Number(data?.unread || 0) + Number(data?.openSupport || 0),
+                unread: Number(data?.unread || 0),
+                messages: Number(data?.unread || 0),
+                support: Number(data?.openSupport || 0),
+                payments: 0,
+              });
+            })
+            .catch(() => {
+              if (alive) setNotifications({ total: 0, unread: 0, messages: 0, support: 0, payments: 0 });
+            });
         });
     };
 
     loadNotifications();
-    const id = window.setInterval(loadNotifications, 30000);
+    const id = window.setInterval(loadNotifications, 15000);
 
     return () => {
       alive = false;
@@ -182,16 +207,16 @@ export default function AccountMenu() {
             className="h-8 w-8 rounded-full object-cover ring-2 ring-[#12372a]/10"
           />
         ) : (
-          <span
-            className="grid h-8 w-8 place-items-center rounded-full bg-[#12372a] text-xs font-black"
-            style={{ color: "#ffffff" }}
-          >
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-[#12372a] text-xs font-black" style={{ color: "#ffffff" }}>
             {initials}
           </span>
         )}
 
         {noticeCount > 0 ? (
-          <span className="absolute -right-2 -top-2 grid min-h-[1.25rem] min-w-[1.25rem] place-items-center rounded-full border-2 border-[#fff8e7] bg-[#e63946] px-1 text-[10px] font-black leading-none text-white shadow-lg">
+          <span
+            className="absolute -right-3 -top-3 grid min-h-[1.65rem] min-w-[1.65rem] place-items-center rounded-full border-[3px] border-white bg-[#e63946] px-1.5 text-[11px] font-black leading-none text-white shadow-[0_0_0_3px_rgba(230,57,70,0.22),0_10px_22px_rgba(230,57,70,0.35)]"
+            aria-label={`${noticeCount} notifications`}
+          >
             {noticeCount > 99 ? "99+" : noticeCount}
           </span>
         ) : (
@@ -207,10 +232,7 @@ export default function AccountMenu() {
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white" />
                 ) : (
-                  <span
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#12372a] text-sm font-black"
-                    style={{ color: "#ffffff" }}
-                  >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#12372a] text-sm font-black" style={{ color: "#ffffff" }}>
                     {initials}
                   </span>
                 )}
@@ -235,13 +257,7 @@ export default function AccountMenu() {
             <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#087f73] ring-1 ring-[#12372a]/10 hover:bg-[#eaf9f7]">
               <FaCamera />
               {uploadBusy ? "Uploading..." : avatarUrl ? "Change profile picture" : "Upload profile picture"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploadBusy}
-                onChange={(e) => uploadAccountPhoto(e.target.files?.[0])}
-              />
+              <input type="file" accept="image/*" className="hidden" disabled={uploadBusy} onChange={(e) => uploadAccountPhoto(e.target.files?.[0])} />
             </label>
             {uploadError && <div className="mt-2 rounded-xl bg-[#ffebe5] px-3 py-2 text-xs font-bold text-[#7a2b18]">{uploadError}</div>}
           </div>

@@ -3,6 +3,7 @@ const { auth } = require("../middleware/auth");
 const Inquiry = require("../models/Inquiry");
 const CoachProfile = require("../models/CoachProfile");
 const Ticket = require("../models/Ticket");
+const { notifyUser, notifyMany } = require("../utils/notifications");
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -96,6 +97,21 @@ function cleanSplitRecipients(value = []) {
   return rows;
 }
 
+async function notifyInquiryParticipant(row, req, payload) {
+  const actorId = userIdOf(req);
+  const playerUserId = String(row.playerId?._id || row.playerId || "");
+  const coachUserId = String(row.coachId?.userId?._id || row.coachId?.userId || "");
+
+  const recipients = [playerUserId, coachUserId].filter((id) => id && !same(id, actorId));
+
+  await notifyMany(recipients, {
+    ...payload,
+    actorId,
+    inquiryId: row._id,
+    link: payload.link || "/messages",
+  });
+}
+
 router.get(
   "/my",
   auth,
@@ -117,6 +133,7 @@ router.get(
   "/notifications",
   auth,
   asyncHandler(async (req, res) => {
+    // Backward-compatible endpoint. New UI uses /api/notifications/summary.
     const role = String(req.user?.role || "").toLowerCase();
     let openSupport = 0;
     let filter;
@@ -137,9 +154,7 @@ router.get(
 
     rows.forEach((row) => {
       (row.messages || []).forEach((msg) => {
-        if (!same(msg.senderId, uid) && !(msg.readBy || []).some((id) => same(id, uid)) && !(msg.deletedFor || []).some((id) => same(id, uid))) {
-          unread += 1;
-        }
+        if (!same(msg.senderId, uid) && !(msg.readBy || []).some((id) => same(id, uid)) && !(msg.deletedFor || []).some((id) => same(id, uid))) unread += 1;
       });
     });
 
@@ -184,7 +199,16 @@ router.post(
       existing.deletedFor = [];
       if (["archived", "closed", "declined"].includes(existing.status)) existing.status = "open";
       await existing.save();
-      return res.json(decorate(await populate(Inquiry.findById(existing._id)), req));
+
+      const populated = await populate(Inquiry.findById(existing._id));
+      await notifyInquiryParticipant(populated, req, {
+        type: "message",
+        title: "New coach message",
+        body: subject,
+        link: "/messages",
+      });
+
+      return res.json(decorate(populated, req));
     }
 
     const row = await Inquiry.create({
@@ -198,7 +222,15 @@ router.post(
       deletedFor: [],
     });
 
-    res.json(decorate(await populate(Inquiry.findById(row._id)), req));
+    const populated = await populate(Inquiry.findById(row._id));
+    await notifyInquiryParticipant(populated, req, {
+      type: "message",
+      title: "New coaching request",
+      body: subject,
+      link: "/messages",
+    });
+
+    res.json(decorate(populated, req));
   })
 );
 
@@ -255,7 +287,15 @@ router.post(
 
     await row.save();
 
-    res.json(decorate(await populate(Inquiry.findById(row._id)), req));
+    const populated = await populate(Inquiry.findById(row._id));
+    await notifyInquiryParticipant(populated, req, {
+      type: "message",
+      title: "New message",
+      body: body.slice(0, 120),
+      link: "/messages",
+    });
+
+    res.json(decorate(populated, req));
   })
 );
 
@@ -339,7 +379,15 @@ router.post(
 
     await row.save();
 
-    res.json(decorate(await populate(Inquiry.findById(row._id)), req));
+    const populated = await populate(Inquiry.findById(row._id));
+    await notifyInquiryParticipant(populated, req, {
+      type: "quote_sent",
+      title: "New custom quote",
+      body: `A coach sent you a $${amount.toFixed(2)} quote.`,
+      link: "/messages",
+    });
+
+    res.json(decorate(populated, req));
   })
 );
 
@@ -358,8 +406,16 @@ router.post(
 
     await row.save();
 
+    const populated = await populate(Inquiry.findById(row._id));
+    await notifyInquiryParticipant(populated, req, {
+      type: "quote_approved",
+      title: "Quote approved",
+      body: "The customer approved your custom quote.",
+      link: "/messages",
+    });
+
     res.json({
-      inquiry: decorate(await populate(Inquiry.findById(row._id)), req),
+      inquiry: decorate(populated, req),
       paymentNextStep: "Quote approved. You can now continue to secure checkout.",
     });
   })
@@ -389,9 +445,17 @@ router.post(
 
     await row.save();
 
+    const populated = await populate(Inquiry.findById(row._id));
+    await notifyInquiryParticipant(populated, req, {
+      type: "quote_declined",
+      title: "Quote declined",
+      body: "The customer declined your custom quote.",
+      link: "/messages",
+    });
+
     res.json({
       ok: true,
-      inquiry: decorate(await populate(Inquiry.findById(row._id)), req),
+      inquiry: decorate(populated, req),
     });
   })
 );

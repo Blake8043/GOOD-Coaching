@@ -131,7 +131,7 @@ function wantsHtml(req) {
   return accept.includes("text/html") || fetchDest === "document" || fetchMode === "navigate";
 }
 
-const databaseBackedRoute = /^\/(api\/)?(auth|users|admin|orders|quotes|products|posts|tickets|blog|testimonials|coaches|coach-applications|payments|videos|reviews|inquiries)(\/|$)/;
+const databaseBackedRoute = /^\/(api\/)?(auth|users|admin|orders|quotes|products|posts|tickets|blog|testimonials|coaches|coach-applications|payments|videos|reviews|inquiries|notifications)(\/|$)/;
 
 app.use(async (req, res, next) => {
   if (wantsHtml(req)) return next();
@@ -201,6 +201,7 @@ safeMount("/api/payments", "./routes/payments");
 safeMount("/api/videos", "./routes/videos");
 safeMount("/api/reviews", "./routes/reviews");
 safeMount("/api/inquiries", "./routes/inquiries");
+safeMount("/api/notifications", "./routes/notifications");
 safeMount("/api/users", "./routes/auth");
 
 /*
@@ -224,6 +225,7 @@ safeMount("/payments", "./routes/payments", { skipHtmlNavigation: true });
 safeMount("/videos", "./routes/videos", { skipHtmlNavigation: true });
 safeMount("/reviews", "./routes/reviews", { skipHtmlNavigation: true });
 safeMount("/inquiries", "./routes/inquiries", { skipHtmlNavigation: true });
+safeMount("/notifications", "./routes/notifications", { skipHtmlNavigation: true });
 
 const distDir = path.resolve(__dirname, "..", "dist");
 const shouldServeClient =
@@ -258,5 +260,4 @@ const PORT = process.env.PORT || 5001;
 
 app.listen(PORT, () => {
   console.log(`API listening on http://localhost:${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
 });
