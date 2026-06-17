@@ -42,37 +42,18 @@ function firstLastInitials(user) {
   const emailName = String(user?.email || "").split("@")[0].replace(/[._-]+/g, " ").trim();
   const source = fullName || emailName || "User";
   const parts = source.split(/\s+/).filter(Boolean);
-
-  if (parts.length >= 2) {
-    return `${parts[0][0] || "U"}${parts[parts.length - 1][0] || ""}`.toUpperCase();
-  }
-
+  if (parts.length >= 2) return `${parts[0][0] || "U"}${parts[parts.length - 1][0] || ""}`.toUpperCase();
   return (parts[0]?.slice(0, 2) || "U").toUpperCase();
 }
 
 function userImage(user) {
-  return (
-    user?.avatarUrl ||
-    user?.profilePicture ||
-    user?.profilePictureUrl ||
-    user?.profileImage ||
-    user?.profileImageUrl ||
-    user?.photoUrl ||
-    user?.imageUrl ||
-    ""
-  );
+  return user?.avatarUrl || user?.profilePicture || user?.profilePictureUrl || user?.profileImage || user?.profileImageUrl || user?.photoUrl || user?.imageUrl || "";
 }
 
 function notificationTotal(value) {
   const total = Number(value?.total);
   if (Number.isFinite(total)) return Math.max(0, total);
-
-  const unread = Number(value?.unread || 0);
-  const messages = Number(value?.messages || 0);
-  const support = Number(value?.support || value?.openSupport || 0);
-  const payments = Number(value?.payments || 0);
-
-  return Math.max(0, unread + messages + support + payments);
+  return Math.max(0, Number(value?.unread || 0) + Number(value?.messages || 0));
 }
 
 export default function AccountMenu() {
@@ -80,7 +61,7 @@ export default function AccountMenu() {
   const nav = useNavigate();
   const [open, setOpen] = useState(false);
   const [coachAvatarUrl, setCoachAvatarUrl] = useState("");
-  const [notifications, setNotifications] = useState({ total: 0, unread: 0, messages: 0, support: 0, payments: 0 });
+  const [notifications, setNotifications] = useState({ total: 0, unread: 0, messages: 0, latest: [] });
   const [uploadBusy, setUploadBusy] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
@@ -88,9 +69,39 @@ export default function AccountMenu() {
   const roleLabel = getRoleLabel(role);
   const links = ROLE_PORTAL_LINKS[role] || [];
 
+  const loadNotifications = () => {
+    if (!token) {
+      setNotifications({ total: 0, unread: 0, messages: 0, latest: [] });
+      return Promise.resolve();
+    }
+
+    return api
+      .get("/notifications/summary", token)
+      .then((data) => {
+        setNotifications({
+          total: Number(data?.total || 0),
+          unread: Number(data?.unread || 0),
+          messages: Number(data?.messages || 0),
+          latest: data?.latest || [],
+        });
+      })
+      .catch(() => {
+        setNotifications({ total: 0, unread: 0, messages: 0, latest: [] });
+      });
+  };
+
+  const markNotificationsRead = async () => {
+    if (!token) return;
+    try {
+      await api.post("/notifications/mark-read", {}, token);
+      await loadNotifications();
+    } catch {
+      // keep UI quiet; next poll will refresh
+    }
+  };
+
   useEffect(() => {
     let alive = true;
-
     if (!token || role !== "coach") {
       setCoachAvatarUrl("");
       return undefined;
@@ -98,13 +109,8 @@ export default function AccountMenu() {
 
     api
       .get("/coaches/me", token)
-      .then((data) => {
-        if (!alive) return;
-        setCoachAvatarUrl(data?.profile?.avatarUrl || "");
-      })
-      .catch(() => {
-        if (alive) setCoachAvatarUrl("");
-      });
+      .then((data) => alive && setCoachAvatarUrl(data?.profile?.avatarUrl || ""))
+      .catch(() => alive && setCoachAvatarUrl(""));
 
     return () => {
       alive = false;
@@ -114,71 +120,45 @@ export default function AccountMenu() {
   useEffect(() => {
     let alive = true;
 
-    const loadNotifications = () => {
-      if (!token) {
-        setNotifications({ total: 0, unread: 0, messages: 0, support: 0, payments: 0 });
-        return;
-      }
-
-      api
-        .get("/notifications/summary", token)
-        .then((data) => {
-          if (!alive) return;
-          setNotifications({
-            total: Number(data?.total || 0),
-            unread: Number(data?.unread || 0),
-            messages: Number(data?.messages || 0),
-            support: Number(data?.support || 0),
-            payments: Number(data?.payments || 0),
-            latest: data?.latest || [],
-          });
-        })
-        .catch(() => {
-          if (!alive) return;
-          api
-            .get("/inquiries/notifications", token)
-            .then((data) => {
-              if (!alive) return;
-              setNotifications({
-                total: Number(data?.unread || 0) + Number(data?.openSupport || 0),
-                unread: Number(data?.unread || 0),
-                messages: Number(data?.unread || 0),
-                support: Number(data?.openSupport || 0),
-                payments: 0,
-              });
-            })
-            .catch(() => {
-              if (alive) setNotifications({ total: 0, unread: 0, messages: 0, support: 0, payments: 0 });
-            });
-        });
+    const run = () => {
+      if (!alive) return;
+      loadNotifications();
     };
 
-    loadNotifications();
-    const id = window.setInterval(loadNotifications, 15000);
+    run();
+    const id = window.setInterval(run, 15000);
 
     return () => {
       alive = false;
       window.clearInterval(id);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useEffect(() => {
+    if (open && notificationTotal(notifications) > 0) {
+      const id = window.setTimeout(() => markNotificationsRead(), 1200);
+      return () => window.clearTimeout(id);
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const initials = useMemo(() => firstLastInitials(user), [user]);
   const avatarUrl = userImage(user) || coachAvatarUrl;
   const noticeCount = notificationTotal(notifications);
 
-  const go = (path) => {
+  const go = async (path) => {
     setOpen(false);
+    await markNotificationsRead();
     nav(path);
 
     const hash = String(path || "").split("#")[1];
-    if (hash) {
-      window.setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
-    }
+    if (hash) window.setTimeout(() => document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   };
 
   const uploadAccountPhoto = async (file) => {
     if (!file || !token) return;
-
     setUploadBusy(true);
     setUploadError("");
 
@@ -201,11 +181,7 @@ export default function AccountMenu() {
         title={`${roleLabel} portal`}
       >
         {avatarUrl ? (
-          <img
-            src={avatarUrl}
-            alt={user?.fullName || user?.email || "Account"}
-            className="h-8 w-8 rounded-full object-cover ring-2 ring-[#12372a]/10"
-          />
+          <img src={avatarUrl} alt={user?.fullName || user?.email || "Account"} className="h-8 w-8 rounded-full object-cover ring-2 ring-[#12372a]/10" />
         ) : (
           <span className="grid h-8 w-8 place-items-center rounded-full bg-[#12372a] text-xs font-black" style={{ color: "#ffffff" }}>
             {initials}
@@ -225,7 +201,7 @@ export default function AccountMenu() {
       </button>
 
       {open && (
-        <div className="absolute right-0 z-[60] mt-2 w-72 overflow-hidden rounded-2xl border border-[#12372a]/10 bg-[#fffef8]/95 text-[#12372a] shadow-2xl shadow-[#12372a]/15 backdrop-blur-xl">
+        <div className="absolute right-0 z-[60] mt-2 w-80 overflow-hidden rounded-2xl border border-[#12372a]/10 bg-[#fffef8]/95 text-[#12372a] shadow-2xl shadow-[#12372a]/15 backdrop-blur-xl">
           <div className="border-b border-[#12372a]/10 bg-[#d9f7fb]/50 px-4 py-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -254,6 +230,17 @@ export default function AccountMenu() {
               </span>
             </div>
 
+            {Array.isArray(notifications.latest) && notifications.latest.length > 0 && (
+              <div className="mt-3 rounded-xl bg-white/80 p-2 text-xs font-bold text-[#40584f]">
+                {notifications.latest.slice(0, 3).map((item) => (
+                  <button key={item._id} type="button" onClick={() => go(item.link || "/messages")} className="block w-full rounded-lg px-2 py-1 text-left hover:bg-[#eaf9f7]">
+                    <span className="font-black text-[#12372a]">{item.title}</span>
+                    {item.body ? <span> — {item.body}</span> : null}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <label className="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-xs font-black text-[#087f73] ring-1 ring-[#12372a]/10 hover:bg-[#eaf9f7]">
               <FaCamera />
               {uploadBusy ? "Uploading..." : avatarUrl ? "Change profile picture" : "Upload profile picture"}
@@ -263,11 +250,7 @@ export default function AccountMenu() {
           </div>
 
           <div className="grid p-2 text-sm font-bold">
-            {links.length === 0 && (
-              <div className="rounded-xl bg-[#fee2e2] px-4 py-3 text-sm font-bold text-[#7f1d1d]">
-                Account role unavailable. Contact an administrator.
-              </div>
-            )}
+            {links.length === 0 && <div className="rounded-xl bg-[#fee2e2] px-4 py-3 text-sm font-bold text-[#7f1d1d]">Account role unavailable. Contact an administrator.</div>}
             {links.map(([label, path]) => (
               <button key={path} onClick={() => go(path)} className="rounded-xl px-4 py-2.5 text-left hover:bg-[#d9f7fb]">
                 {label}

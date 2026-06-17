@@ -23,6 +23,7 @@ const notificationSchema = new mongoose.Schema(
     inquiryId: { type: mongoose.Schema.Types.ObjectId, ref: "Inquiry" },
     orderId: { type: mongoose.Schema.Types.ObjectId, ref: "Order" },
     paymentSplitId: { type: mongoose.Schema.Types.ObjectId, ref: "PaymentSplit" },
+    ticketId: { type: mongoose.Schema.Types.ObjectId, ref: "Ticket" },
     readAt: { type: Date, default: null, index: true },
     dismissedAt: { type: Date, default: null, index: true },
   },
@@ -30,5 +31,9 @@ const notificationSchema = new mongoose.Schema(
 );
 
 notificationSchema.index({ userId: 1, readAt: 1, dismissedAt: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, type: 1, inquiryId: 1 });
+notificationSchema.index({ userId: 1, type: 1, orderId: 1 });
+notificationSchema.index({ userId: 1, type: 1, paymentSplitId: 1 });
+notificationSchema.index({ userId: 1, type: 1, ticketId: 1 });
 
 module.exports = mongoose.model("Notification", notificationSchema);

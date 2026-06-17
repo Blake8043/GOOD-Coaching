@@ -161,11 +161,7 @@ function safeMount(routePath, modulePath, options = {}) {
     const isRouterFn = typeof router === "function";
     const hasHandle = router && typeof router.handle === "function";
 
-    if (!isRouterFn && !hasHandle) {
-      throw new Error(
-        `Router at ${modulePath} is not valid. typeof=${typeof router} keys=${Object.keys(router || {})}`
-      );
-    }
+    if (!isRouterFn && !hasHandle) throw new Error(`Router at ${modulePath} is not valid. typeof=${typeof router} keys=${Object.keys(router || {})}`);
 
     if (options.skipHtmlNavigation) {
       app.use(routePath, (req, _res, next) => {
@@ -183,7 +179,6 @@ function safeMount(routePath, modulePath, options = {}) {
 
 /*
   Main API mounts.
-  These are the clean production paths.
 */
 safeMount("/api/auth", "./routes/auth");
 safeMount("/api/admin", "./routes/admin");
@@ -206,7 +201,6 @@ safeMount("/api/users", "./routes/auth");
 
 /*
   Compatibility mounts.
-  Compatibility mounts for clients using routes without the /api prefix.
 */
 safeMount("/auth", "./routes/auth");
 safeMount("/users", "./routes/auth");

@@ -1,11 +1,27 @@
 const router = require("express").Router();
 const Ticket = require("../models/Ticket");
+const User = require("../models/User");
 const { sendSupportTicketEmail, configuredProvider, SUPPORT_EMAIL } = require("../utils/email");
+const { notifyMany } = require("../utils/notifications");
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 function clean(value) {
   return String(value || "").trim();
+}
+
+async function notifyAdminsAboutTicket(ticket) {
+  const admins = await User.find({ roles: { $in: ["admin", "employee"] } }).select("_id");
+  await notifyMany(
+    admins.map((row) => row._id),
+    {
+      type: "support",
+      title: "New support request",
+      body: `${ticket.name || "Customer"}: ${ticket.subject || ticket.service || "Support request"}`,
+      link: "/admin/requests",
+      ticketId: ticket._id,
+    }
+  );
 }
 
 router.post(
@@ -31,6 +47,8 @@ router.post(
       message,
       status: "open",
     });
+
+    await notifyAdminsAboutTicket(ticket).catch((err) => console.error("Support notification failed:", err.message || err));
 
     try {
       const emailResult = await sendSupportTicketEmail(ticket);
