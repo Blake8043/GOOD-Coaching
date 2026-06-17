@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { auth, allow } = require("../middleware/auth");
+const { auth } = require("../middleware/auth");
 const Inquiry = require("../models/Inquiry");
 const CoachProfile = require("../models/CoachProfile");
 const Ticket = require("../models/Ticket");
@@ -20,11 +20,11 @@ function cleanBody(value, max = 5000) {
 
 function populate(query) {
   return query
-    .populate("playerId", "fullName email phone")
+    .populate("playerId", "fullName email phone avatarUrl profilePictureUrl")
     .populate({
       path: "coachId",
       select: "displayName avatarUrl contactEmail userId presenceStatus acceptingInquiries stripeAccountId payoutsEnabled stripeOnboardingComplete",
-      populate: { path: "userId", select: "email fullName" },
+      populate: { path: "userId", select: "email fullName avatarUrl profilePictureUrl" },
     })
     .populate("quote.splitRecipients.coachId", "displayName stripeAccountId payoutsEnabled stripeOnboardingComplete");
 }
@@ -182,7 +182,7 @@ router.post(
       existing.lastMessageAt = new Date();
       existing.archivedFor = [];
       existing.deletedFor = [];
-      if (["archived", "closed"].includes(existing.status)) existing.status = "open";
+      if (["archived", "closed", "declined"].includes(existing.status)) existing.status = "open";
       await existing.save();
       return res.json(decorate(await populate(Inquiry.findById(existing._id)), req));
     }
@@ -361,6 +361,37 @@ router.post(
     res.json({
       inquiry: decorate(await populate(Inquiry.findById(row._id)), req),
       paymentNextStep: "Quote approved. You can now continue to secure checkout.",
+    });
+  })
+);
+
+router.post(
+  "/:id/quote/decline",
+  auth,
+  asyncHandler(async (req, res) => {
+    const row = await access(req, req.params.id);
+    if (!row) return res.status(row === false ? 403 : 404).json({ error: row === false ? "Forbidden" : "Inquiry not found" });
+    if (!userIsPlayer(row, req)) return res.status(403).json({ error: "Only the customer can decline this quote." });
+    if (!row.quote || !["sent", "draft"].includes(row.quote.status || "draft")) {
+      return res.status(400).json({ error: "There is no quote available to decline." });
+    }
+
+    row.quote.status = "declined";
+    row.quote.declinedAt = new Date();
+    row.status = "open";
+    row.lastMessageAt = new Date();
+
+    row.messages.push({
+      senderId: userIdOf(req),
+      body: "Customer declined the custom quote.",
+      readBy: [userIdOf(req)],
+    });
+
+    await row.save();
+
+    res.json({
+      ok: true,
+      inquiry: decorate(await populate(Inquiry.findById(row._id)), req),
     });
   })
 );

@@ -84,6 +84,11 @@ const userSchema = new mongoose.Schema(
     name: { type: String, trim: true, default: "" },
     phone: { type: String, trim: true, default: "" },
 
+    // Customer/admin/staff profile avatar. Coach profile images still live on CoachProfile.avatarUrl,
+    // but this allows normal customer accounts to upload an account-menu profile picture too.
+    avatarUrl: { type: String, default: "" },
+    profilePictureUrl: { type: String, default: "" },
+
     // Keep BOTH fields so older code and newer code keep working.
     // role is the primary role used by route guards and JWTs.
     role: {
@@ -123,6 +128,8 @@ userSchema.pre("validate", function syncRoleFields(next) {
 
   if (!this.name && this.fullName) this.name = this.fullName;
   if (!this.fullName && this.name) this.fullName = this.name;
+  if (!this.profilePictureUrl && this.avatarUrl) this.profilePictureUrl = this.avatarUrl;
+  if (!this.avatarUrl && this.profilePictureUrl) this.avatarUrl = this.profilePictureUrl;
 
   next();
 });
