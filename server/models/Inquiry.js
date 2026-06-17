@@ -28,7 +28,7 @@ const inquirySchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["open", "quoted", "approved", "closed", "archived"],
+      enum: ["open", "quoted", "approved", "declined", "closed", "archived"],
       default: "open",
       index: true,
     },
@@ -50,6 +50,7 @@ const inquirySchema = new mongoose.Schema(
       status: { type: String, enum: ["draft", "sent", "approved", "declined"], default: "draft" },
       sentAt: Date,
       approvedAt: Date,
+      declinedAt: Date,
     },
   },
   { timestamps: true }
