@@ -141,24 +141,47 @@ router.post(
   "/",
   auth,
   asyncHandler(async (req, res) => {
-    const coach = await CoachProfile.findById(req.body?.coachId);
+    const currentUserId = userIdOf(req);
+    const coachId = cleanBody(req.body?.coachId, 80);
+    const coach = coachId ? await CoachProfile.findById(coachId) : null;
     const subject = cleanBody(req.body?.subject || "Coaching inquiry", 200);
     const body = cleanBody(req.body?.message);
     const requestedServices = Array.isArray(req.body?.requestedServices)
       ? req.body.requestedServices.map((item) => cleanBody(item, 160)).filter(Boolean).slice(0, 12)
       : [];
 
+    if (!currentUserId) return res.status(401).json({ error: "Please sign in before messaging a coach." });
     if (!coach || !coach.approved) return res.status(404).json({ error: "Coach not found" });
-    if (!coach.acceptingInquiries) return res.status(400).json({ error: "This coach is not accepting new inquiries right now." });
+    if (coach.acceptingInquiries === false) return res.status(400).json({ error: "This coach is not accepting new inquiries right now." });
     if (!body) return res.status(400).json({ error: "Please include a message for the coach." });
+
+    const existing = await Inquiry.findOne({
+      coachId: coach._id,
+      playerId: currentUserId,
+      status: { $in: ["open", "quoted", "approved"] },
+    }).sort({ updatedAt: -1 });
+
+    const message = { senderId: currentUserId, body, readBy: [currentUserId] };
+
+    if (existing) {
+      existing.subject = existing.subject || subject;
+      existing.requestedServices = requestedServices.length ? requestedServices : existing.requestedServices;
+      existing.messages.push(message);
+      existing.lastMessageAt = new Date();
+      existing.archivedFor = [];
+      existing.deletedFor = (existing.deletedFor || []).filter((id) => !same(id, currentUserId) && !same(id, coach.userId));
+      if (["archived", "closed"].includes(existing.status)) existing.status = "open";
+      await existing.save();
+      return res.json(decorate(await populate(Inquiry.findById(existing._id)), req));
+    }
 
     const row = await Inquiry.create({
       coachId: coach._id,
-      playerId: req.user._id,
+      playerId: currentUserId,
       subject,
       requestedServices,
       lastMessageAt: new Date(),
-      messages: [{ senderId: req.user._id, body, readBy: [req.user._id] }],
+      messages: [message],
     });
 
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
