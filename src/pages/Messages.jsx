@@ -44,6 +44,7 @@ export default function Messages({ embedded = false }) {
   useEffect(() => {
     if (!selected?._id) return;
     api.post(`/inquiries/${selected._id}/read`, {}, token).catch(() => {});
+    api.post("/notifications/mark-read", {}, token).catch(() => {});
     setQuote({
       amount: selected.quote?.amount || "",
       discountPercent: selected.quote?.discountPercent || 0,
@@ -77,6 +78,14 @@ export default function Messages({ embedded = false }) {
     await load();
   });
 
+  const deleteMessage = (messageId) => action(async () => {
+    if (!selected || !messageId) return;
+    const row = await api.delete(`/inquiries/${selected._id}/messages/${messageId}`, token);
+    setSelected(row);
+    push("Message removed. The quote and request were not deleted.", "success");
+    await load();
+  });
+
   const sendQuote = () => action(async () => {
     const splitRecipients = (quote.splitRecipients || []).filter((item) => item.coachId && Number(item.percentage || 0) > 0);
     const row = await api.post(`/inquiries/${selected._id}/quote`, { ...quote, splitRecipients }, token);
@@ -93,8 +102,8 @@ export default function Messages({ embedded = false }) {
   });
 
   const decline = () => action(async () => {
-    const row = await api.post(`/inquiries/${selected._id}/quote/decline`, { message: "I declined this quote. Please revise it or message me to discuss the scope." }, token);
-    setSelected(row);
+    const result = await api.post(`/inquiries/${selected._id}/quote/decline`, { message: "I declined this quote. Please revise it or message me to discuss the scope." }, token);
+    setSelected(result.inquiry || result);
     push("Quote declined. The coach can revise and resend it.", "success");
     await load();
   });
@@ -113,9 +122,9 @@ export default function Messages({ embedded = false }) {
   });
 
   const deleteSelected = () => action(async () => {
-    if (!selected || !window.confirm("Remove this request from your inbox? This does not delete it for the other person.")) return;
+    if (!selected || !window.confirm("Remove this request from your inbox? This hides it for you only and does not delete the quote for the other person.")) return;
     await api.delete(`/inquiries/${selected._id}`, token);
-    push("Request removed from your inbox.", "success");
+    push("Request removed from your inbox. Quote history is preserved.", "success");
     setSelected(null);
     await load();
   });
@@ -185,17 +194,34 @@ export default function Messages({ embedded = false }) {
                   <div className="flex flex-wrap gap-2">
                     {selected.coachId?.contactEmail && <a href={`mailto:${selected.coachId.contactEmail}`} className="pp-btn-secondary px-4 py-2"><FaEnvelope className="mr-2" />Email coach</a>}
                     <button onClick={archiveSelected} disabled={busy} className="pp-btn-secondary px-4 py-2"><FaArchive className="mr-2" />Move old</button>
-                    <button onClick={deleteSelected} disabled={busy} className="rounded-full bg-[#ffebe5] px-4 py-2 font-black text-[#7a2b18]"><FaTrash className="mr-2 inline" />Remove</button>
+                    <button onClick={deleteSelected} disabled={busy} className="rounded-full bg-[#ffebe5] px-4 py-2 font-black text-[#7a2b18]"><FaTrash className="mr-2 inline" />Remove from inbox</button>
                   </div>
                 </div>
 
                 <div className="my-5 max-h-96 space-y-3 overflow-auto rounded-2xl bg-[#f8fbf9] p-3">
-                  {selected.messages?.map((item) => (
-                    <div key={item._id} className={`rounded-2xl p-4 ${String(item.senderId) === userId(user) ? "ml-8 bg-[#d9f7fb]" : "mr-8 bg-white shadow-sm"}`}>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-[#12372a]">{item.body}</p>
-                    </div>
-                  ))}
+                  {selected.messages?.map((item) => {
+                    const mine = String(item.senderId) === userId(user);
+                    return (
+                      <div key={item._id} className={`rounded-2xl p-4 ${mine ? "ml-8 bg-[#d9f7fb]" : "mr-8 bg-white shadow-sm"}`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="whitespace-pre-wrap text-sm leading-6 text-[#12372a]">{item.body}</p>
+                          {(mine || user?.role === "admin") && (
+                            <button
+                              type="button"
+                              onClick={() => deleteMessage(item._id)}
+                              disabled={busy}
+                              className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[11px] font-black text-[#7a2b18] ring-1 ring-[#b94024]/15 hover:bg-[#ffebe5]"
+                              title="Delete only this message"
+                            >
+                              Delete message
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+
                 <div className="flex gap-2">
                   <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} className="pp-input px-4 py-3" placeholder="Ask about goals, deliverables, timing, or scope..." />
                   <button onClick={send} disabled={busy || !message.trim()} className="pp-btn-primary px-5"><FaPaperPlane /></button>
@@ -247,9 +273,7 @@ export default function Messages({ embedded = false }) {
                         <div key={index} className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_.5fr_auto]">
                           <select className="pp-input px-3 py-2" value={userId(split.coachId)} onChange={(e) => updateSplit(index, "coachId", e.target.value)}>
                             <option value="">Select second coach</option>
-                            {availableCoaches
-                              .filter((coach) => coach._id !== selected.coachId?._id)
-                              .map((coach) => <option key={coach._id} value={coach._id}>{coach.displayName}</option>)}
+                            {availableCoaches.filter((coach) => coach._id !== selected.coachId?._id).map((coach) => <option key={coach._id} value={coach._id}>{coach.displayName}</option>)}
                           </select>
                           <input className="pp-input px-3 py-2" value={split.label || ""} onChange={(e) => updateSplit(index, "label", e.target.value)} placeholder="Label / coach name" />
                           <input className="pp-input px-3 py-2" type="number" min="1" max="100" value={split.percentage} onChange={(e) => updateSplit(index, "percentage", e.target.value)} placeholder="%" />
@@ -272,6 +296,7 @@ export default function Messages({ embedded = false }) {
 function Metric({ label, value }) {
   return <div className="min-w-32 rounded-2xl bg-[#eaf9f7] px-4 py-3"><div className="text-2xl font-black text-[#12372a]">{value}</div><div className="text-xs font-bold text-[#40584f]">{label}</div></div>;
 }
+
 function Status({ value }) {
   return <span className="h-fit rounded-full bg-[#c6ff4a] px-2.5 py-1 text-[10px] font-black uppercase text-[#12372a]">{String(value || "open").replaceAll("_", " ")}</span>;
 }

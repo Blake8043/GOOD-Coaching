@@ -3,7 +3,8 @@ const { auth } = require("../middleware/auth");
 const Inquiry = require("../models/Inquiry");
 const CoachProfile = require("../models/CoachProfile");
 const Ticket = require("../models/Ticket");
-const { notifyUser, notifyMany } = require("../utils/notifications");
+const Notification = require("../models/Notification");
+const { notifyMany } = require("../utils/notifications");
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
@@ -133,7 +134,6 @@ router.get(
   "/notifications",
   auth,
   asyncHandler(async (req, res) => {
-    // Backward-compatible endpoint. New UI uses /api/notifications/summary.
     const role = String(req.user?.role || "").toLowerCase();
     let openSupport = 0;
     let filter;
@@ -201,12 +201,7 @@ router.post(
       await existing.save();
 
       const populated = await populate(Inquiry.findById(existing._id));
-      await notifyInquiryParticipant(populated, req, {
-        type: "message",
-        title: "New coach message",
-        body: subject,
-        link: "/messages",
-      });
+      await notifyInquiryParticipant(populated, req, { type: "message", title: "New coach message", body: subject, link: "/messages" });
 
       return res.json(decorate(populated, req));
     }
@@ -223,12 +218,7 @@ router.post(
     });
 
     const populated = await populate(Inquiry.findById(row._id));
-    await notifyInquiryParticipant(populated, req, {
-      type: "message",
-      title: "New coaching request",
-      body: subject,
-      link: "/messages",
-    });
+    await notifyInquiryParticipant(populated, req, { type: "message", title: "New coaching request", body: subject, link: "/messages" });
 
     res.json(decorate(populated, req));
   })
@@ -265,6 +255,12 @@ router.post(
 
     if (changed) await row.save();
 
+    // Once a user opens/views this request, remove the alert badge for this request.
+    await Notification.updateMany(
+      { userId: uid, inquiryId: row._id, readAt: null },
+      { $set: { readAt: new Date() } }
+    );
+
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
   })
 );
@@ -288,12 +284,7 @@ router.post(
     await row.save();
 
     const populated = await populate(Inquiry.findById(row._id));
-    await notifyInquiryParticipant(populated, req, {
-      type: "message",
-      title: "New message",
-      body: body.slice(0, 120),
-      link: "/messages",
-    });
+    await notifyInquiryParticipant(populated, req, { type: "message", title: "New message", body: body.slice(0, 120), link: "/messages" });
 
     res.json(decorate(populated, req));
   })
@@ -307,11 +298,10 @@ router.post(
     if (row === false) return res.status(403).json({ error: "Forbidden" });
     if (!row) return res.status(404).json({ error: "Inquiry not found" });
 
-    if (!(row.archivedFor || []).some((id) => same(id, userIdOf(req)))) {
-      row.archivedFor.push(userIdOf(req));
-    }
+    if (!(row.archivedFor || []).some((id) => same(id, userIdOf(req)))) row.archivedFor.push(userIdOf(req));
 
     await row.save();
+    await Notification.updateMany({ userId: userIdOf(req), inquiryId: row._id, readAt: null }, { $set: { readAt: new Date() } });
     res.json({ ok: true });
   })
 );
@@ -321,12 +311,19 @@ router.delete(
   auth,
   asyncHandler(async (req, res) => {
     const row = await populate(Inquiry.findById(req.params.id));
-    if (!row) return res.json({ ok: true, deleted: true });
+    if (!row) return res.json({ ok: true, removed: true });
     if (!userCanSee(row, req)) return res.status(403).json({ error: "Forbidden" });
 
-    await Inquiry.deleteOne({ _id: row._id });
+    // Soft-remove the request from this user's inbox only.
+    // This keeps the quote, payment history, and the other user's conversation intact.
+    const uid = userIdOf(req);
+    if (!(row.deletedFor || []).some((id) => same(id, uid))) row.deletedFor.push(uid);
+    if (!(row.archivedFor || []).some((id) => same(id, uid))) row.archivedFor.push(uid);
+    await row.save();
 
-    res.json({ ok: true, deleted: true });
+    await Notification.updateMany({ userId: uid, inquiryId: row._id, readAt: null }, { $set: { readAt: new Date(), dismissedAt: new Date() } });
+
+    res.json({ ok: true, removed: true });
   })
 );
 
@@ -342,9 +339,8 @@ router.delete(
     if (!msg) return res.status(404).json({ error: "Message not found" });
     if (!same(msg.senderId, userIdOf(req)) && req.user.role !== "admin") return res.status(403).json({ error: "Only the sender can delete this message." });
 
-    if (!(msg.deletedFor || []).some((id) => same(id, userIdOf(req)))) {
-      msg.deletedFor.push(userIdOf(req));
-    }
+    // Hide only this message for this user. Do not delete the quote or the inquiry.
+    if (!(msg.deletedFor || []).some((id) => same(id, userIdOf(req)))) msg.deletedFor.push(userIdOf(req));
 
     await row.save();
     res.json(decorate(await populate(Inquiry.findById(row._id)), req));
@@ -380,12 +376,7 @@ router.post(
     await row.save();
 
     const populated = await populate(Inquiry.findById(row._id));
-    await notifyInquiryParticipant(populated, req, {
-      type: "quote_sent",
-      title: "New custom quote",
-      body: `A coach sent you a $${amount.toFixed(2)} quote.`,
-      link: "/messages",
-    });
+    await notifyInquiryParticipant(populated, req, { type: "quote_sent", title: "New custom quote", body: `A coach sent you a $${amount.toFixed(2)} quote.`, link: "/messages" });
 
     res.json(decorate(populated, req));
   })
@@ -407,17 +398,9 @@ router.post(
     await row.save();
 
     const populated = await populate(Inquiry.findById(row._id));
-    await notifyInquiryParticipant(populated, req, {
-      type: "quote_approved",
-      title: "Quote approved",
-      body: "The customer approved your custom quote.",
-      link: "/messages",
-    });
+    await notifyInquiryParticipant(populated, req, { type: "quote_approved", title: "Quote approved", body: "The customer approved your custom quote.", link: "/messages" });
 
-    res.json({
-      inquiry: decorate(populated, req),
-      paymentNextStep: "Quote approved. You can now continue to secure checkout.",
-    });
+    res.json({ inquiry: decorate(populated, req), paymentNextStep: "Quote approved. You can now continue to secure checkout." });
   })
 );
 
@@ -428,35 +411,21 @@ router.post(
     const row = await access(req, req.params.id);
     if (!row) return res.status(row === false ? 403 : 404).json({ error: row === false ? "Forbidden" : "Inquiry not found" });
     if (!userIsPlayer(row, req)) return res.status(403).json({ error: "Only the customer can decline this quote." });
-    if (!row.quote || !["sent", "draft"].includes(row.quote.status || "draft")) {
-      return res.status(400).json({ error: "There is no quote available to decline." });
-    }
+    if (!row.quote || !["sent", "draft"].includes(row.quote.status || "draft")) return res.status(400).json({ error: "There is no quote available to decline." });
 
     row.quote.status = "declined";
     row.quote.declinedAt = new Date();
     row.status = "open";
     row.lastMessageAt = new Date();
 
-    row.messages.push({
-      senderId: userIdOf(req),
-      body: "Customer declined the custom quote.",
-      readBy: [userIdOf(req)],
-    });
+    row.messages.push({ senderId: userIdOf(req), body: "Customer declined the custom quote.", readBy: [userIdOf(req)] });
 
     await row.save();
 
     const populated = await populate(Inquiry.findById(row._id));
-    await notifyInquiryParticipant(populated, req, {
-      type: "quote_declined",
-      title: "Quote declined",
-      body: "The customer declined your custom quote.",
-      link: "/messages",
-    });
+    await notifyInquiryParticipant(populated, req, { type: "quote_declined", title: "Quote declined", body: "The customer declined your custom quote.", link: "/messages" });
 
-    res.json({
-      ok: true,
-      inquiry: decorate(populated, req),
-    });
+    res.json({ ok: true, inquiry: decorate(populated, req) });
   })
 );
 
