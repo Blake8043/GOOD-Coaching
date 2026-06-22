@@ -6,10 +6,12 @@ import {
   FaEnvelope,
   FaExternalLinkAlt,
   FaFacebook,
+  FaFilePdf,
   FaGlobe,
   FaInstagram,
   FaStar,
   FaTiktok,
+  FaVideo,
   FaYoutube,
 } from "react-icons/fa";
 import { api } from "../lib/api";
@@ -28,8 +30,8 @@ function money(value) {
   return `$${Number(value || 0).toFixed(2)}`;
 }
 
-function readable(value) {
-  return String(value || "single_video").replaceAll("_", " ");
+function packageIsPurchasable(pkg) {
+  return Boolean(pkg?._id && pkg?.active !== false && Number(pkg?.price || 0) > 0);
 }
 
 function includedDeliverables(pkg) {
@@ -41,14 +43,17 @@ function includedDeliverables(pkg) {
   ].filter(Boolean);
 }
 
-function packageIsPurchasable(pkg) {
-  return Boolean(pkg?._id && pkg?.active !== false && Number(pkg?.price || 0) > 0);
-}
-
 function duprDisplay(value) {
   if (value === null || value === undefined || value === "") return "NR";
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n.toFixed(3).replace(/0+$/, "").replace(/\.$/, "") : "NR";
+}
+
+function uploadTypeLabel(types = []) {
+  const selected = Array.isArray(types) ? types : [];
+  if (selected.includes("video") && selected.includes("pdf")) return "Video + PDF/document";
+  if (selected.includes("pdf")) return "PDF/document";
+  return "Video";
 }
 
 export default function CoachProfile() {
@@ -66,6 +71,7 @@ export default function CoachProfile() {
   const [inquiryMessage, setInquiryMessage] = useState("");
   const [customRequestOpen, setCustomRequestOpen] = useState(false);
   const [requestedServices, setRequestedServices] = useState([]);
+  const [requestedUploadTypes, setRequestedUploadTypes] = useState(["video"]);
 
   useEffect(() => {
     setLoading(true);
@@ -88,6 +94,19 @@ export default function CoachProfile() {
 
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
+  const toggleRequestedService = (service) => {
+    setRequestedServices((current) =>
+      current.includes(service) ? current.filter((item) => item !== service) : [...current, service]
+    );
+  };
+
+  const toggleUploadType = (type) => {
+    setRequestedUploadTypes((current) => {
+      const next = current.includes(type) ? current.filter((item) => item !== type) : [...current, type];
+      return next.length ? next : [type];
+    });
+  };
+
   const startConversation = async () => {
     if (!user) return nav("/signin", { state: { from: { pathname: `/coaches/${id}` } } });
     if (!inquiryMessage.trim()) return push("Write a short message for the coach first.", "error");
@@ -101,6 +120,7 @@ export default function CoachProfile() {
           subject: `Coaching inquiry for ${coach.displayName}`,
           message: inquiryMessage,
           requestedServices,
+          requestedUploadTypes,
         },
         token
       );
@@ -113,21 +133,17 @@ export default function CoachProfile() {
     }
   };
 
-  const toggleRequestedService = (service) => {
-    setRequestedServices((current) =>
-      current.includes(service) ? current.filter((item) => item !== service) : [...current, service]
-    );
-  };
-
   const sendCustomRequest = async () => {
     if (!user) return nav("/signin", { state: { from: { pathname: `/coaches/${id}` } } });
     if (!requestedServices.length) return push("Select at least one training service.", "error");
+    if (!requestedUploadTypes.length) return push("Choose whether you plan to send video, PDF/document, or both.", "error");
     if (!form.goals.trim() && !form.description.trim()) return push("Tell the coach what you would like help with.", "error");
 
     setBusy(true);
     try {
       const message = [
         `Requested services: ${requestedServices.join(", ")}`,
+        `Customer plans to send after payment: ${uploadTypeLabel(requestedUploadTypes)}`,
         form.skillLevel && `Skill level: ${form.skillLevel}`,
         form.goals && `Goals: ${form.goals}`,
         form.description && `Extra notes: ${form.description}`,
@@ -142,10 +158,11 @@ export default function CoachProfile() {
           subject: form.title.trim() || `Personalized request for ${coach.displayName}`,
           message,
           requestedServices,
+          requestedUploadTypes,
         },
         token
       );
-      push("Personalized request sent. The coach can now chat with you and send a quote.", "success");
+      push("Personalized request sent. The coach can quote video, PDF/document, or both.", "success");
       nav("/dashboard/requests");
     } catch (e) {
       push(e.message || "Could not send personalized request.", "error");
@@ -176,6 +193,7 @@ export default function CoachProfile() {
   };
 
   if (loading) return <div className="pp-page min-h-screen px-6 pt-32 font-bold text-[#12372a]">Loading coach...</div>;
+
   if (!coach) {
     return (
       <div className="pp-page min-h-screen px-6 pt-32">
@@ -198,6 +216,7 @@ export default function CoachProfile() {
     "Personalized drill plan",
     "Monthly training program",
     "Strategy consultation",
+    "PDF notes / document review",
     "Other custom service",
   ].filter((item, index, all) => all.indexOf(item) === index);
 
@@ -226,6 +245,7 @@ export default function CoachProfile() {
               <div className="mt-2 flex items-center gap-2 font-bold text-[#b94024]">
                 <FaStar /> {coach.rating || 5} rating / {coach.reviewCount || 0} reviews
               </div>
+
               <p className="mt-6 leading-7 text-[#40584f]">
                 {coach.bio || "This coach is ready to review gameplay footage and create a focused online training plan."}
               </p>
@@ -235,7 +255,12 @@ export default function CoachProfile() {
                   label="DUPR ID"
                   value={
                     coach.duprId ? (
-                      <a className="font-bold underline" href={coach.duprProfileUrl || `https://dashboard.dupr.com/dashboard/player/${coach.duprId}`} target="_blank" rel="noreferrer">
+                      <a
+                        className="font-bold underline"
+                        href={coach.duprProfileUrl || `https://dashboard.dupr.com/dashboard/player/${coach.duprId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
                         {coach.duprId} <FaExternalLinkAlt className="inline" />
                       </a>
                     ) : (
@@ -246,7 +271,6 @@ export default function CoachProfile() {
                 <ProfileFact label="Singles" value={duprDisplay(coach.duprSingles)} />
                 <ProfileFact label="Doubles" value={duprDisplay(coach.duprDoubles)} />
                 <ProfileFact label="Location" value={[coach.city, coach.state, coach.country].filter(Boolean).join(", ") || "Online"} />
-                {coach.duprId && <div className="text-xs font-semibold text-[#40584f] sm:col-span-2">Ratings are entered by the coach. Open the linked DUPR profile to verify current ratings.</div>}
               </div>
 
               <div className="mt-6 flex flex-wrap gap-2">
@@ -259,8 +283,8 @@ export default function CoachProfile() {
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {coach.contactEmail && (
-                  <a href={`mailto:${coach.contactEmail}`} className="inline-flex items-center gap-2 rounded-full border border-[#12372a]/10 bg-white px-4 py-2 text-sm font-black text-[#12372a] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eaf9f7]">
-                    <FaEnvelope /> Email coach
+                  <a href={`mailto:${coach.contactEmail}`} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#12372a]/10 bg-white text-[#12372a] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eaf9f7]" title="Email coach">
+                    <FaEnvelope />
                   </a>
                 )}
                 <Social href={coach.socialLinks?.instagram} icon={<FaInstagram />} label="Instagram" />
@@ -273,11 +297,11 @@ export default function CoachProfile() {
           </div>
 
           <section className="rounded-3xl border border-[#12372a]/10 bg-white p-5 shadow-sm">
-            <h2 className="text-xl font-black text-[#12372a]">How online coaching works</h2>
+            <h2 className="text-xl font-black text-[#12372a]">How personalized requests work</h2>
             <ol className="mt-4 space-y-3 text-sm font-semibold leading-6 text-[#40584f]">
-              <li>1. Choose a buy-now plan or send a personalized request.</li>
-              <li>2. After payment, upload a pickleball video up to 15 minutes.</li>
-              <li>3. The coach reviews your footage and sends feedback in your dashboard.</li>
+              <li>1. Choose whether you plan to send video, PDF/document, or both.</li>
+              <li>2. The coach sends a custom quote with the final required upload type.</li>
+              <li>3. After payment, your dashboard unlocks the matching upload section.</li>
             </ol>
           </section>
         </aside>
@@ -291,17 +315,15 @@ export default function CoachProfile() {
               className="coach-chat-trigger inline-flex items-center gap-2 rounded-full bg-[#087f73] px-5 py-3 text-sm font-black text-white shadow-md transition hover:bg-[#066a61] disabled:cursor-not-allowed disabled:bg-[#d8dfdc] disabled:text-[#43564e] disabled:opacity-100"
             >
               <span className={`h-3 w-3 rounded-full border-2 border-white ${isOnline ? "bg-[#55e58d]" : "bg-[#87938e]"}`} />
-              <FaComments /> {canChat ? "Have a question? Message this coach" : "Coach is not accepting new messages"}
+              Have a question? Message this coach
             </button>
-            <p className="mt-3 text-sm font-semibold leading-6 text-[#40584f]">
-              {isOnline ? "This coach is online now. Send a question before choosing a plan." : "This coach is offline right now, but your message will be saved."}
-            </p>
-            {chatOpen && canChat && (
-              <div className="mt-4 rounded-2xl border border-[#00a896]/20 bg-[#eaf9f7] p-4">
-                <label className="block text-sm font-black text-[#12372a]" htmlFor="coach-chat-message">Your question</label>
-                <textarea id="coach-chat-message" value={inquiryMessage} onChange={(e) => setInquiryMessage(e.target.value)} rows={3} className="pp-input mt-2 px-4 py-3" placeholder="Tell the coach what you want help with..." />
-                <button type="button" onClick={startConversation} disabled={busy || !inquiryMessage.trim()} className="pp-btn-primary mt-3 px-5 py-3 disabled:opacity-60">
-                  {busy ? "Starting conversation..." : "Send question"}
+
+            {chatOpen && (
+              <div className="mt-4 rounded-2xl border border-[#00a896]/25 bg-[#eaf9f7] p-4">
+                <p className="text-sm font-bold text-[#40584f]">Send a question before choosing a plan.</p>
+                <textarea value={inquiryMessage} onChange={(e) => setInquiryMessage(e.target.value)} rows={4} className="pp-input mt-3 px-4 py-3" placeholder="Ask your question..." />
+                <button onClick={startConversation} disabled={busy} className="pp-btn-primary mt-3 px-4 py-2">
+                  Send question
                 </button>
               </div>
             )}
@@ -310,132 +332,103 @@ export default function CoachProfile() {
           <section className="rounded-3xl border border-[#12372a]/10 bg-white p-6 shadow-sm">
             <h2 className="text-2xl font-black text-[#12372a]">Choose an online coaching option</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              {(coach.packages || []).map((pkg) => {
-                const isSelected = selectedPackageId === pkg._id;
-                const deliverables = includedDeliverables(pkg);
-
-                return (
-                  <button
-                    type="button"
-                    key={pkg._id}
-                    onClick={() => {
-                      setSelectedPackageId(pkg._id);
-                      setCustomRequestOpen(false);
-                    }}
-                    className={`rounded-2xl border p-5 text-left transition ${isSelected ? "border-[#00a896] bg-[#eaf9f7]" : "border-[#12372a]/10 bg-white hover:bg-[#f2fbfa]"}`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg font-black text-[#12372a]">{pkg.title}</h3>
-                        <p className="mt-2 text-sm leading-6 text-[#40584f]">{pkg.description}</p>
-                      </div>
-                      <div className="max-w-28 text-right text-sm font-black text-[#087f73]">
-                        {money(pkg.price)}
-                        {pkg.discountPercent > 0 && <div className="mt-1 text-xs text-[#9b4f00]">{pkg.discountPercent}% discount</div>}
-                      </div>
-                    </div>
-                    <div className="mt-4 flex items-center gap-2 text-xs font-bold capitalize text-[#4f665d]">
-                      <FaClock /> {readable(pkg.reviewType)} / {pkg.turnaroundHours || coach.turnaroundHours || 72}h / {Math.min(pkg.maxVideoMinutes || 15, 15)} min max video
-                    </div>
-                    {!!deliverables.length && <div className="mt-3 text-xs font-bold text-[#087f73]">{deliverables.join(" / ")}</div>}
-                  </button>
-                );
-              })}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedPackageId("");
-                  setCustomRequestOpen(true);
-                }}
-                className={`rounded-2xl border-2 border-dashed p-5 text-left transition ${customRequestOpen ? "border-[#00a896] bg-[#eaf9f7]" : "border-[#00a896]/40 bg-[#fffdf6] hover:bg-[#eaf9f7]"}`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-black text-[#12372a]">Personalized Request</h3>
-                    <p className="mt-2 text-sm leading-6 text-[#40584f]">Combine multiple training services or ask for something not listed. No payment is collected now.</p>
+              {(coach.packages || []).map((pkg) => (
+                <button
+                  key={pkg._id}
+                  onClick={() => setSelectedPackageId(pkg._id)}
+                  className={`rounded-2xl border p-4 text-left transition ${selectedPackageId === pkg._id ? "border-[#087f73] bg-[#eaf9f7]" : "border-[#12372a]/10 bg-white hover:bg-[#fff8e7]"}`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-black text-[#12372a]">{pkg.title}</h3>
+                    <span className="rounded-full bg-[#c6ff4a] px-3 py-1 text-sm font-black">{money(pkg.price)}</span>
                   </div>
-                  <FaComments className="text-2xl text-[#087f73]" />
-                </div>
-                <div className="mt-4 text-xs font-black text-[#087f73]">Start chat, coach creates quote, you approve or decline</div>
+                  <p className="mt-2 text-sm leading-6 text-[#40584f]">{pkg.description}</p>
+                  {!!includedDeliverables(pkg).length && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {includedDeliverables(pkg).map((item) => (
+                        <span key={item} className="rounded-full bg-white px-2 py-1 text-[11px] font-black text-[#087f73]">{item}</span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              ))}
+
+              <button type="button" onClick={() => setCustomRequestOpen((open) => !open)} className="rounded-2xl border border-dashed border-[#087f73] bg-[#fffef8] p-4 text-left">
+                <h3 className="font-black text-[#12372a]">Personalized Request</h3>
+                <p className="mt-2 text-sm leading-6 text-[#40584f]">
+                  Ask for video review, PDF notes/document review, or a custom mix. The coach sends a quote for you to approve.
+                </p>
               </button>
             </div>
 
-            {!coach.packages.length && (
-              <div className="mt-5 rounded-2xl bg-[#eaf9f7] p-4 text-sm font-semibold text-[#40584f]">
-                This coach does not have public buy-now packages yet. Send a personalized request to discuss scope and pricing.
-              </div>
-            )}
-          </section>
-
-          {customRequestOpen && (
-            <section className="rounded-3xl border-2 border-[#00a896]/30 bg-[#eaf9f7] p-6 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="pp-kicker">No payment required</p>
-                  <h2 className="mt-1 text-2xl font-black text-[#12372a]">Build a personalized request</h2>
-                  <p className="mt-2 text-sm leading-6 text-[#40584f]">Select one or more services. The coach can confirm details and send a quote.</p>
-                </div>
-                <button type="button" onClick={() => setCustomRequestOpen(false)} className="pp-btn-secondary px-4 py-2 text-sm">Close</button>
-              </div>
-
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                {customServiceOptions.map((service) => (
-                  <label key={service} className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-4 font-bold ${requestedServices.includes(service) ? "border-[#00a896] bg-white" : "border-[#12372a]/10 bg-white/60"}`}>
-                    <input type="checkbox" checked={requestedServices.includes(service)} onChange={() => toggleRequestedService(service)} className="h-5 w-5 accent-[#087f73]" />
-                    {service}
-                  </label>
-                ))}
-              </div>
-
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <Field label="Request title">
-                  <input value={form.title} onChange={(e) => updateForm("title", e.target.value)} className="pp-input mt-1 px-4 py-3" placeholder="Example: Tournament preparation plan" />
-                </Field>
-                <Field label="Skill level">
-                  <select value={form.skillLevel} onChange={(e) => updateForm("skillLevel", e.target.value)} className="pp-input mt-1 px-4 py-3">
-                    <option value="">Select level</option>
-                    {SKILL_LEVEL_OPTIONS.map((level) => <option key={level}>{level}</option>)}
-                  </select>
-                </Field>
-                <Field label="Goals" wide>
-                  <textarea value={form.goals} onChange={(e) => updateForm("goals", e.target.value)} rows={3} className="pp-input mt-1 px-4 py-3" placeholder="What results are you looking for?" />
-                </Field>
-                <Field label="Extra notes" wide>
-                  <textarea value={form.description} onChange={(e) => updateForm("description", e.target.value)} rows={4} className="pp-input mt-1 px-4 py-3" placeholder="Timing, deliverables, questions, or other details." />
-                </Field>
-              </div>
-              <button type="button" onClick={sendCustomRequest} disabled={busy} className="pp-btn-primary mt-5 w-full px-6 py-4">
-                {busy ? "Sending request..." : "Send request and open coach chat"}
+            {selectedPackage ? (
+              <button onClick={checkout} disabled={busy} className="pp-btn-primary mt-5 px-5 py-3">
+                Buy selected plan
               </button>
-            </section>
-          )}
+            ) : null}
+          </section>
 
           <section className="rounded-3xl border border-[#12372a]/10 bg-white p-6 shadow-sm">
             <h2 className="text-2xl font-black text-[#12372a]">Tell the coach what to review</h2>
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <Field label="Submission title">
-                <input value={form.title} onChange={(e) => updateForm("title", e.target.value)} className="pp-input mt-1 px-4 py-3" placeholder="Doubles match from Saturday" />
-              </Field>
-              <Field label="Skill level">
-                <select value={form.skillLevel} onChange={(e) => updateForm("skillLevel", e.target.value)} className="pp-input mt-1 px-4 py-3">
-                  <option value="">Select level</option>
-                  {SKILL_LEVEL_OPTIONS.map((level) => <option key={level}>{level}</option>)}
-                </select>
-              </Field>
-              <Field label="Main goals" wide>
-                <textarea value={form.goals} onChange={(e) => updateForm("goals", e.target.value)} rows={3} className="pp-input mt-1 px-4 py-3" placeholder="Example: help me fix my third shot drop and stop getting caught at the baseline." />
-              </Field>
-              <Field label="Extra notes" wide>
-                <textarea value={form.description} onChange={(e) => updateForm("description", e.target.value)} rows={6} maxLength={5000} className="pp-input mt-1 px-4 py-3" placeholder="Opponent level, tournament goals, limitations, preferences, and expectations." />
-              </Field>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <input className="pp-input px-4 py-3" value={form.title} onChange={(e) => updateForm("title", e.target.value)} placeholder="Submission title" />
+              <select className="pp-input px-4 py-3" value={form.skillLevel} onChange={(e) => updateForm("skillLevel", e.target.value)}>
+                <option value="">Select level</option>
+                {SKILL_LEVEL_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+              <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={form.goals} onChange={(e) => updateForm("goals", e.target.value)} placeholder="Main goals" />
+              <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={form.description} onChange={(e) => updateForm("description", e.target.value)} placeholder="Extra notes" />
             </div>
-            <div className="mt-5 rounded-2xl border border-[#087f73]/25 bg-[#d9f7fb] p-4 text-sm font-bold leading-6 text-[#20483c]">
-              Please allow 1-3 business days for coaches to review and respond. Uploaded videos are limited to 15 minutes.
-            </div>
-            <button type="button" onClick={checkout} disabled={busy || !selectedPackage} className="pp-btn-primary mt-6 w-full px-6 py-4 disabled:opacity-60">
-              {busy ? "Creating checkout..." : selectedPackage ? `Request ${selectedPackage.title}` : "Select a buy-now option"}
-            </button>
+
+            {customRequestOpen && (
+              <div className="mt-5 rounded-2xl border border-[#00a896]/25 bg-[#eaf9f7] p-5">
+                <h3 className="font-black text-[#12372a]">Personalized request details</h3>
+                <p className="mt-1 text-sm font-semibold text-[#40584f]">
+                  This is the customer-side choice. The coach can still finalize the required upload type and cost in the quote.
+                </p>
+
+                <div className="mt-4 grid gap-2 md:grid-cols-2">
+                  {customServiceOptions.map((service) => (
+                    <button
+                      key={service}
+                      type="button"
+                      onClick={() => toggleRequestedService(service)}
+                      className={`rounded-2xl border p-3 text-left text-sm font-black ${requestedServices.includes(service) ? "border-[#087f73] bg-white text-[#087f73]" : "border-[#12372a]/10 bg-white/60 text-[#40584f]"}`}
+                    >
+                      {service}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-5 rounded-2xl bg-white p-4">
+                  <div className="font-black text-[#12372a]">What do you plan to send after payment?</div>
+                  <p className="mt-1 text-sm font-semibold text-[#40584f]">Choose one or both so the coach knows whether to quote video, PDF/document review, or both.</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleUploadType("video")}
+                      className={`rounded-2xl border p-4 text-left font-black ${requestedUploadTypes.includes("video") ? "border-[#087f73] bg-[#eaf9f7] text-[#087f73]" : "border-[#12372a]/10 text-[#40584f]"}`}
+                    >
+                      <FaVideo className="mr-2 inline" /> Video
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleUploadType("pdf")}
+                      className={`rounded-2xl border p-4 text-left font-black ${requestedUploadTypes.includes("pdf") ? "border-[#087f73] bg-[#eaf9f7] text-[#087f73]" : "border-[#12372a]/10 text-[#40584f]"}`}
+                    >
+                      <FaFilePdf className="mr-2 inline" /> PDF / document
+                    </button>
+                  </div>
+                  <div className="mt-3 rounded-xl bg-[#fff8e7] p-3 text-sm font-black text-[#12372a]">
+                    Selected: {uploadTypeLabel(requestedUploadTypes)}
+                  </div>
+                </div>
+
+                <button onClick={sendCustomRequest} disabled={busy} className="pp-btn-primary mt-5 px-5 py-3">
+                  Submit personalized request
+                </button>
+              </div>
+            )}
           </section>
         </main>
       </div>
@@ -446,41 +439,16 @@ export default function CoachProfile() {
 function ProfileFact({ label, value }) {
   return (
     <div>
-      <span className="font-black text-[#087f73]">{label}:</span> <span className="font-semibold text-[#29483d]">{value}</span>
+      <div className="text-xs font-black uppercase tracking-wider text-[#087f73]">{label}</div>
+      <div className="mt-1 font-bold">{value}</div>
     </div>
-  );
-}
-
-function Field({ label, wide, children }) {
-  return (
-    <label className={wide ? "block md:col-span-2" : "block"}>
-      <span className="text-sm font-black text-[#29483d]">{label}</span>
-      {children}
-    </label>
   );
 }
 
 function Social({ href, icon, label }) {
   if (!href) return null;
-
-  const url = /^https?:\/\//i.test(href) ? href : `https://${href}`;
-  const tone = {
-    Instagram: "text-[#E4405F]",
-    YouTube: "text-[#FF0000]",
-    Facebook: "text-[#1877F2]",
-    TikTok: "text-[#111827]",
-    Website: "text-[#087f73]",
-  }[label] || "text-[#12372a]";
-
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      title={label}
-      aria-label={label}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-full bg-white text-xl ${tone} shadow-sm ring-1 ring-[#12372a]/10 transition hover:-translate-y-0.5 hover:bg-[#fffdf6]`}
-    >
+    <a href={href} target="_blank" rel="noreferrer" aria-label={label} title={label} className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#12372a]/10 bg-white text-[#087f73] shadow-sm transition hover:-translate-y-0.5 hover:bg-[#eaf9f7]">
       {icon}
     </a>
   );
