@@ -68,7 +68,11 @@ async function access(req, id) {
 function objectIdString(value) {
   if (!value) return "";
   if (typeof value === "object") {
-    return cleanBody(value._id || value.id || value.value || value.coachId || value.recipientCoachId, 80);
+    const nested = value._id || value.id || value.value || value.coachId || value.recipientCoachId;
+    if (nested && nested !== value) return objectIdString(nested);
+    if (typeof value.toHexString === "function") return cleanBody(value.toHexString(), 80);
+    if (typeof value.toString === "function" && value.toString !== Object.prototype.toString) return cleanBody(value.toString(), 80);
+    return "";
   }
   return cleanBody(value, 80);
 }
@@ -77,12 +81,22 @@ function validObjectId(value) {
 }
 function cleanSplitRecipients(value = []) {
   if (!Array.isArray(value)) return [];
-  const rows = value
+  const normalized = value
     .map((item) => ({
       coachId: objectIdString(item?.coachId || item?.recipientCoachId),
       label: cleanBody(item?.label, 120),
       percentage: Number(item?.percentage || 0),
     }))
+    .filter((item) => item.coachId || item.percentage > 0);
+
+  const invalid = normalized.find((item) => item.percentage > 0 && !validObjectId(item.coachId));
+  if (invalid) {
+    const error = new Error("Choose a valid coach for every quote split recipient.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const rows = normalized
     .filter((item) => validObjectId(item.coachId) && item.percentage > 0 && item.percentage <= 100)
     .slice(0, 5);
 
