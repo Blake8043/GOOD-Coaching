@@ -6,11 +6,14 @@ function safeString(value, max = 500) {
 
 function dedupeFilter(userId, payload = {}) {
   const filter = { userId, type: payload.type || "system" };
+
   if (payload.inquiryId) filter.inquiryId = payload.inquiryId;
   if (payload.orderId) filter.orderId = payload.orderId;
   if (payload.paymentSplitId) filter.paymentSplitId = payload.paymentSplitId;
   if (payload.ticketId) filter.ticketId = payload.ticketId;
-  return filter.inquiryId || filter.orderId || filter.paymentSplitId || filter.ticketId ? filter : null;
+
+  const hasEntity = filter.inquiryId || filter.orderId || filter.paymentSplitId || filter.ticketId;
+  return hasEntity ? filter : null;
 }
 
 async function notifyUser(userId, payload = {}) {
@@ -34,13 +37,25 @@ async function notifyUser(userId, payload = {}) {
 
   try {
     const filter = dedupeFilter(uid, payload);
+
     if (filter) {
       return await Notification.findOneAndUpdate(
         filter,
-        { $setOnInsert: doc, $set: { title: doc.title, body: doc.body, link: doc.link, actorId: doc.actorId, readAt: null, dismissedAt: null } },
+        {
+          $setOnInsert: doc,
+          $set: {
+            title: doc.title,
+            body: doc.body,
+            link: doc.link,
+            actorId: doc.actorId,
+            readAt: null,
+            dismissedAt: null,
+          },
+        },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     }
+
     return await Notification.create(doc);
   } catch (err) {
     console.error("Notification create failed:", err.message || err);

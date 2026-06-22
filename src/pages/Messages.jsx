@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaArchive, FaCheck, FaComments, FaEnvelope, FaPaperPlane, FaReceipt, FaTimes, FaTrash } from "react-icons/fa";
+import {
+  FaArchive,
+  FaCheck,
+  FaComments,
+  FaEnvelope,
+  FaFilePdf,
+  FaPaperPlane,
+  FaReceipt,
+  FaTimes,
+  FaTrash,
+  FaVideo,
+} from "react-icons/fa";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
@@ -12,22 +23,42 @@ function isCoachFor(row, user) {
   return userId(row?.coachId?.userId) === userId(user);
 }
 
+function uploadTypeLabel(types = []) {
+  const selected = Array.isArray(types) ? types : [];
+  if (selected.includes("video") && selected.includes("pdf")) return "Video + PDF/document";
+  if (selected.includes("pdf")) return "PDF/document";
+  return "Video";
+}
+
 export default function Messages({ embedded = false }) {
   const { token, user } = useAuth();
   const { push } = useToast();
+
   const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const [availableCoaches, setAvailableCoaches] = useState([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
-  const [quote, setQuote] = useState({ amount: "", discountPercent: 0, scope: "", deliverables: "", uploadInstructions: "", splitRecipients: [] });
+
+  const [quote, setQuote] = useState({
+    amount: "",
+    discountPercent: 0,
+    scope: "",
+    deliverables: "",
+    uploadInstructions: "",
+    splitRecipients: [],
+    requiredUploadTypes: ["video"],
+    videoAdditionalCost: "",
+    pdfAdditionalCost: "",
+  });
 
   const load = async () => {
     const [data, coaches] = await Promise.all([
       api.get(`/inquiries/my${showArchived ? "?archived=1" : ""}`, token),
       api.get("/coaches", token).catch(() => []),
     ]);
+
     const normalized = Array.isArray(data) ? data : [];
     setRows(normalized);
     setAvailableCoaches(Array.isArray(coaches) ? coaches : []);
@@ -43,21 +74,37 @@ export default function Messages({ embedded = false }) {
 
   useEffect(() => {
     if (!selected?._id) return;
+
     api.post(`/inquiries/${selected._id}/read`, {}, token).catch(() => {});
     api.post("/notifications/mark-read", {}, token).catch(() => {});
+
+    const requiredUploadTypes = selected.quote?.requiredUploadTypes?.length
+      ? selected.quote.requiredUploadTypes
+      : selected.requestedUploadTypes?.length
+        ? selected.requestedUploadTypes
+        : ["video"];
+
+    const videoOption = selected.quote?.uploadOptions?.find((row) => row.type === "video");
+    const pdfOption = selected.quote?.uploadOptions?.find((row) => row.type === "pdf");
+
     setQuote({
-      amount: selected.quote?.amount || "",
+      amount: selected.quote?.baseAmount || selected.quote?.amount || "",
       discountPercent: selected.quote?.discountPercent || 0,
       scope: selected.quote?.scope || "",
       deliverables: selected.quote?.deliverables || "",
       uploadInstructions: selected.quote?.uploadInstructions || "",
       splitRecipients: selected.quote?.splitRecipients || [],
+      requiredUploadTypes,
+      videoAdditionalCost: videoOption?.additionalCost || "",
+      pdfAdditionalCost: pdfOption?.additionalCost || "",
     });
   }, [selected?._id, token]);
 
   const isCoach = useMemo(() => selected && isCoachFor(selected, user), [selected, user]);
   const openCount = rows.filter((row) => ["open", "quoted", "approved"].includes(row.status)).length;
   const unreadCount = rows.reduce((sum, row) => sum + Number(row.unreadCount || 0), 0);
+  const addOnTotal = Number(quote.videoAdditionalCost || 0) + Number(quote.pdfAdditionalCost || 0);
+  const finalQuoteTotal = Number(quote.amount || 0) + addOnTotal;
 
   const action = async (fn) => {
     setBusy(true);
@@ -70,78 +117,113 @@ export default function Messages({ embedded = false }) {
     }
   };
 
-  const send = () => action(async () => {
-    if (!message.trim() || !selected) return;
-    const row = await api.post(`/inquiries/${selected._id}/messages`, { message }, token);
-    setSelected(row);
-    setMessage("");
-    await load();
-  });
+  const toggleRequiredUploadType = (type) => {
+    setQuote((current) => {
+      const existing = Array.isArray(current.requiredUploadTypes) ? current.requiredUploadTypes : [];
+      const next = existing.includes(type) ? existing.filter((item) => item !== type) : [...existing, type];
+      return { ...current, requiredUploadTypes: next.length ? next : [type] };
+    });
+  };
 
-  const deleteMessage = (messageId) => action(async () => {
-    if (!selected || !messageId) return;
-    const row = await api.delete(`/inquiries/${selected._id}/messages/${messageId}`, token);
-    setSelected(row);
-    push("Message removed. The quote and request were not deleted.", "success");
-    await load();
-  });
+  const send = () =>
+    action(async () => {
+      if (!message.trim() || !selected) return;
+      const row = await api.post(`/inquiries/${selected._id}/messages`, { message }, token);
+      setSelected(row);
+      setMessage("");
+      await load();
+    });
 
-  const sendQuote = () => action(async () => {
-    const splitRecipients = (quote.splitRecipients || []).filter((item) => item.coachId && Number(item.percentage || 0) > 0);
-    const row = await api.post(`/inquiries/${selected._id}/quote`, { ...quote, splitRecipients }, token);
-    setSelected(row);
-    push("Quote sent for customer approval.", "success");
-    await load();
-  });
+  const deleteMessage = (messageId) =>
+    action(async () => {
+      if (!selected || !messageId) return;
+      const row = await api.delete(`/inquiries/${selected._id}/messages/${messageId}`, token);
+      setSelected(row);
+      push("Message removed. The quote and request were not deleted.", "success");
+      await load();
+    });
 
-  const approve = () => action(async () => {
-    const result = await api.post(`/inquiries/${selected._id}/quote/approve`, {}, token);
-    setSelected(result.inquiry);
-    push(result.paymentNextStep, "success");
-    await load();
-  });
+  const sendQuote = () =>
+    action(async () => {
+      const splitRecipients = (quote.splitRecipients || []).filter((item) => item.coachId && Number(item.percentage || 0) > 0);
+      const requiredUploadTypes = quote.requiredUploadTypes?.length ? quote.requiredUploadTypes : ["video"];
 
-  const decline = () => action(async () => {
-    const result = await api.post(`/inquiries/${selected._id}/quote/decline`, { message: "I declined this quote. Please revise it or message me to discuss the scope." }, token);
-    setSelected(result.inquiry || result);
-    push("Quote declined. The coach can revise and resend it.", "success");
-    await load();
-  });
+      const row = await api.post(
+        `/inquiries/${selected._id}/quote`,
+        {
+          ...quote,
+          amount: Number(quote.amount || 0),
+          requiredUploadTypes,
+          uploadOptionPrices: {
+            video: Number(quote.videoAdditionalCost || 0),
+            pdf: Number(quote.pdfAdditionalCost || 0),
+          },
+          splitRecipients,
+        },
+        token
+      );
 
-  const payQuote = () => action(async () => {
-    const result = await api.post(`/payments/quotes/${selected._id}/checkout`, {}, token);
-    if (result.checkoutUrl) window.location.href = result.checkoutUrl;
-  });
+      setSelected(row);
+      push("Quote sent. The customer will receive a quote notification.", "success");
+      await load();
+    });
 
-  const archiveSelected = () => action(async () => {
-    if (!selected) return;
-    await api.post(`/inquiries/${selected._id}/archive`, {}, token);
-    push("Request moved out of the main inbox.", "success");
-    setSelected(null);
-    await load();
-  });
+  const approve = () =>
+    action(async () => {
+      const result = await api.post(`/inquiries/${selected._id}/quote/approve`, {}, token);
+      setSelected(result.inquiry);
+      push(result.paymentNextStep, "success");
+      await load();
+    });
 
-  const deleteSelected = () => action(async () => {
-    if (!selected || !window.confirm("Remove this request from your inbox? This hides it for you only and does not delete the quote for the other person.")) return;
-    await api.delete(`/inquiries/${selected._id}`, token);
-    push("Request removed from your inbox. Quote history is preserved.", "success");
-    setSelected(null);
-    await load();
-  });
+  const decline = () =>
+    action(async () => {
+      const result = await api.post(`/inquiries/${selected._id}/quote/decline`, {}, token);
+      setSelected(result.inquiry || result);
+      push("Quote declined. The coach can revise and resend it.", "success");
+      await load();
+    });
+
+  const payQuote = () =>
+    action(async () => {
+      const result = await api.post(`/payments/quotes/${selected._id}/checkout`, {}, token);
+      if (result.checkoutUrl) window.location.href = result.checkoutUrl;
+    });
+
+  const archiveSelected = () =>
+    action(async () => {
+      if (!selected) return;
+      await api.post(`/inquiries/${selected._id}/archive`, {}, token);
+      push("Request moved out of the main inbox.", "success");
+      setSelected(null);
+      await load();
+    });
+
+  const deleteSelected = () =>
+    action(async () => {
+      if (!selected || !window.confirm("Remove this request from your inbox? This hides it for you only and does not delete the quote for the other person.")) return;
+      await api.delete(`/inquiries/${selected._id}`, token);
+      push("Request removed from your inbox. Quote history is preserved.", "success");
+      setSelected(null);
+      await load();
+    });
 
   const addSplit = () => setQuote((current) => ({ ...current, splitRecipients: [...(current.splitRecipients || []), { coachId: "", label: "", percentage: "" }] }));
-  const updateSplit = (index, key, value) => setQuote((current) => ({
-    ...current,
-    splitRecipients: (current.splitRecipients || []).map((item, i) => {
-      if (i !== index) return item;
-      const next = { ...item, [key]: value };
-      if (key === "coachId") {
-        const coach = availableCoaches.find((row) => row._id === value);
-        if (coach && !next.label) next.label = coach.displayName;
-      }
-      return next;
-    }),
-  }));
+
+  const updateSplit = (index, key, value) =>
+    setQuote((current) => ({
+      ...current,
+      splitRecipients: (current.splitRecipients || []).map((item, i) => {
+        if (i !== index) return item;
+        const next = { ...item, [key]: value };
+        if (key === "coachId") {
+          const coach = availableCoaches.find((row) => row._id === value);
+          if (coach && !next.label) next.label = coach.displayName;
+        }
+        return next;
+      }),
+    }));
+
   const removeSplit = (index) => setQuote((current) => ({ ...current, splitRecipients: (current.splitRecipients || []).filter((_, i) => i !== index) }));
 
   return (
@@ -153,34 +235,55 @@ export default function Messages({ embedded = false }) {
             <div>
               <h1 className="text-3xl font-black text-[#12372a] md:text-4xl">Coach conversations & quotes</h1>
               <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#40584f]">
-                Customers and coaches can message, approve quotes, pay, then upload videos after payment.
+                Customers and coaches can message, approve quotes, pay, then upload the video and/or PDF required by the personalized quote.
               </p>
             </div>
-            <div className="flex gap-3"><Metric label="Open" value={openCount} /><Metric label="Unread" value={unreadCount} /></div>
+            <div className="flex gap-3">
+              <Metric label="Open" value={openCount} />
+              <Metric label="Unread" value={unreadCount} />
+            </div>
           </div>
         </header>
 
         <div className="grid gap-5 lg:grid-cols-[.72fr_1.28fr]">
           <aside className="rounded-3xl border border-[#12372a]/10 bg-white p-4 shadow-lg">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="flex items-center gap-2 font-black text-[#12372a]"><FaComments /> Conversations</h2>
+              <h2 className="flex items-center gap-2 font-black text-[#12372a]">
+                <FaComments /> Conversations
+              </h2>
               <button type="button" onClick={() => setShowArchived((v) => !v)} className="rounded-full bg-[#eaf9f7] px-3 py-1 text-xs font-black text-[#087f73]">
                 {showArchived ? "Hide old" : "Show old"}
               </button>
             </div>
-            {rows.length ? rows.map((row) => {
-              const coachView = isCoachFor(row, user);
-              return (
-                <button key={row._id} onClick={() => setSelected(row)} className={`mb-2 w-full rounded-2xl border p-4 text-left transition ${selected?._id === row._id ? "border-[#00a896] bg-[#eaf9f7] shadow-sm" : "border-[#12372a]/10 bg-white hover:bg-[#fff8e7]"}`}>
-                  <div className="flex justify-between gap-2">
-                    <b className="text-[#12372a]">{coachView ? row.playerId?.fullName || row.playerId?.email : row.coachId?.displayName}</b>
-                    <Status value={row.quote?.status !== "draft" ? row.quote?.status : row.status} />
-                  </div>
-                  <div className="mt-1 text-sm font-semibold text-[#40584f]">{row.subject}</div>
-                  {row.unreadCount > 0 && <div className="mt-2 inline-flex rounded-full bg-[#ff7b54] px-2 py-1 text-[11px] font-black text-white">{row.unreadCount} unread</div>}
-                </button>
-              );
-            }) : <div className="rounded-2xl bg-[#fff8e7] p-5 text-sm leading-6 text-[#40584f]">Open any coach profile and choose <b>Personalized Request</b> to start a conversation.</div>}
+
+            {rows.length ? (
+              rows.map((row) => {
+                const coachView = isCoachFor(row, user);
+                const types = row.quote?.requiredUploadTypes?.length ? row.quote.requiredUploadTypes : row.requestedUploadTypes || ["video"];
+
+                return (
+                  <button
+                    key={row._id}
+                    onClick={() => setSelected(row)}
+                    className={`mb-2 w-full rounded-2xl border p-4 text-left transition ${selected?._id === row._id ? "border-[#00a896] bg-[#eaf9f7] shadow-sm" : "border-[#12372a]/10 bg-white hover:bg-[#fff8e7]"}`}
+                  >
+                    <div className="flex justify-between gap-2">
+                      <b className="text-[#12372a]">{coachView ? row.playerId?.fullName || row.playerId?.email : row.coachId?.displayName}</b>
+                      <Status value={row.quote?.status !== "draft" ? row.quote?.status : row.status} />
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-[#40584f]">{row.subject}</div>
+                    <div className="mt-2 text-xs font-black uppercase tracking-wide text-[#087f73]">
+                      Upload: {uploadTypeLabel(types)}
+                    </div>
+                    {row.unreadCount > 0 && <div className="mt-2 inline-flex rounded-full bg-[#ff7b54] px-2 py-1 text-[11px] font-black text-white">{row.unreadCount} unread</div>}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="rounded-2xl bg-[#fff8e7] p-5 text-sm leading-6 text-[#40584f]">
+                Open any coach profile and choose <b>Personalized Request</b> to start a conversation.
+              </div>
+            )}
           </aside>
 
           <main className="rounded-3xl border border-[#12372a]/10 bg-white p-5 shadow-lg">
@@ -189,12 +292,22 @@ export default function Messages({ embedded = false }) {
                 <div className="flex flex-wrap justify-between gap-3 border-b border-[#12372a]/10 pb-4">
                   <div>
                     <h2 className="text-2xl font-black text-[#12372a]">{selected.subject}</h2>
-                    <span className="text-sm font-bold text-[#087f73]">{selected.coachId?.presenceStatus === "online" ? "Coach online now" : "Messages are saved"}</span>
+                    <span className="text-sm font-bold text-[#087f73]">
+                      Customer requested: {uploadTypeLabel(selected.requestedUploadTypes || ["video"])}
+                    </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {selected.coachId?.contactEmail && <a href={`mailto:${selected.coachId.contactEmail}`} className="pp-btn-secondary px-4 py-2"><FaEnvelope className="mr-2" />Email coach</a>}
-                    <button onClick={archiveSelected} disabled={busy} className="pp-btn-secondary px-4 py-2"><FaArchive className="mr-2" />Move old</button>
-                    <button onClick={deleteSelected} disabled={busy} className="rounded-full bg-[#ffebe5] px-4 py-2 font-black text-[#7a2b18]"><FaTrash className="mr-2 inline" />Remove from inbox</button>
+                    {selected.coachId?.contactEmail && (
+                      <a href={`mailto:${selected.coachId.contactEmail}`} className="pp-btn-secondary px-4 py-2">
+                        <FaEnvelope className="mr-2" />Email coach
+                      </a>
+                    )}
+                    <button onClick={archiveSelected} disabled={busy} className="pp-btn-secondary px-4 py-2">
+                      <FaArchive className="mr-2" />Move old
+                    </button>
+                    <button onClick={deleteSelected} disabled={busy} className="rounded-full bg-[#ffebe5] px-4 py-2 font-black text-[#7a2b18]">
+                      <FaTrash className="mr-2 inline" />Remove from inbox
+                    </button>
                   </div>
                 </div>
 
@@ -211,7 +324,6 @@ export default function Messages({ embedded = false }) {
                               onClick={() => deleteMessage(item._id)}
                               disabled={busy}
                               className="shrink-0 rounded-full bg-white/80 px-2 py-1 text-[11px] font-black text-[#7a2b18] ring-1 ring-[#b94024]/15 hover:bg-[#ffebe5]"
-                              title="Delete only this message"
                             >
                               Delete message
                             </button>
@@ -224,27 +336,44 @@ export default function Messages({ embedded = false }) {
 
                 <div className="flex gap-2">
                   <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} className="pp-input px-4 py-3" placeholder="Ask about goals, deliverables, timing, or scope..." />
-                  <button onClick={send} disabled={busy || !message.trim()} className="pp-btn-primary px-5"><FaPaperPlane /></button>
+                  <button onClick={send} disabled={busy || !message.trim()} className="pp-btn-primary px-5">
+                    <FaPaperPlane />
+                  </button>
                 </div>
 
                 {selected.quote?.status && selected.quote.status !== "draft" && (
                   <section className="mt-5 rounded-2xl border border-[#00a896]/30 bg-[#d9f7fb] p-5 text-[#12372a]">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h3 className="text-xl font-black"><FaReceipt className="mr-2 inline" />Custom quote: ${Number(selected.quote.amount || 0).toFixed(2)}</h3>
+                      <h3 className="text-xl font-black">
+                        <FaReceipt className="mr-2 inline" />Custom quote: ${Number(selected.quote.amount || 0).toFixed(2)}
+                      </h3>
                       <Status value={selected.quote.status} />
                     </div>
                     <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{selected.quote.scope}</p>
                     {selected.quote.deliverables && <p className="mt-3 whitespace-pre-wrap text-sm leading-6"><b>Deliverables:</b> {selected.quote.deliverables}</p>}
-                    {selected.quote.uploadInstructions && <p className="mt-3 whitespace-pre-wrap text-sm leading-6"><b>After payment upload instructions:</b> {selected.quote.uploadInstructions}</p>}
-                    {!!selected.quote.splitRecipients?.length && (
-                      <div className="mt-3 rounded-2xl bg-white p-3 text-sm font-semibold">
-                        <b>Order-specific coach split:</b> {selected.quote.splitRecipients.map((row) => `${row.label || row.coachId?.displayName || "Coach"} ${row.percentage}%`).join(" / ")}
+                    <div className="mt-3 rounded-2xl bg-white p-3 text-sm font-black text-[#12372a]">
+                      Customer will upload after payment: {uploadTypeLabel(selected.quote.requiredUploadTypes || ["video"])}
+                    </div>
+                    {!!selected.quote.uploadOptions?.length && (
+                      <div className="mt-3 grid gap-2 md:grid-cols-2">
+                        {selected.quote.uploadOptions.map((option) => (
+                          <div key={option.type} className="rounded-2xl bg-white p-3 text-sm font-bold text-[#40584f]">
+                            {option.type === "video" ? <FaVideo className="mr-2 inline text-[#087f73]" /> : <FaFilePdf className="mr-2 inline text-[#b94024]" />}
+                            {option.label || option.type}
+                            {Number(option.additionalCost || 0) > 0 && <span> +${Number(option.additionalCost).toFixed(2)}</span>}
+                          </div>
+                        ))}
                       </div>
                     )}
+                    {selected.quote.uploadInstructions && <p className="mt-3 whitespace-pre-wrap text-sm leading-6"><b>After payment upload instructions:</b> {selected.quote.uploadInstructions}</p>}
                     {!isCoach && selected.quote.status === "sent" && (
                       <div className="mt-4 flex flex-wrap gap-3">
-                        <button onClick={approve} disabled={busy} className="pp-btn-primary px-4 py-2"><FaCheck className="mr-2" />Approve quote</button>
-                        <button onClick={decline} disabled={busy} className="pp-btn-secondary px-4 py-2"><FaTimes className="mr-2" />Decline</button>
+                        <button onClick={approve} disabled={busy} className="pp-btn-primary px-4 py-2">
+                          <FaCheck className="mr-2" />Approve quote
+                        </button>
+                        <button onClick={decline} disabled={busy} className="pp-btn-secondary px-4 py-2">
+                          <FaTimes className="mr-2" />Decline
+                        </button>
                       </div>
                     )}
                     {!isCoach && selected.quote.status === "approved" && <button onClick={payQuote} disabled={busy} className="pp-btn-primary mt-4 px-4 py-2">Pay approved quote securely</button>}
@@ -255,15 +384,34 @@ export default function Messages({ embedded = false }) {
                   <section className="mt-5 rounded-2xl border border-[#12372a]/10 bg-[#fffdf6] p-5">
                     <h3 className="font-black text-[#12372a]">Create or revise the final quote</h3>
                     <p className="mt-1 text-sm text-[#40584f]">
-                      Order-specific split coaching is only set here on personalized requests. The customer approves this quote first, then pays, then uploads files/video after payment.
+                      Customer requested: <b>{uploadTypeLabel(selected.requestedUploadTypes || ["video"])}</b>. Choose the final required upload type and any add-on costs.
                     </p>
+
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      <input className="pp-input px-4 py-3" type="number" min="0" value={quote.amount} onChange={(e) => setQuote((current) => ({ ...current, amount: e.target.value }))} placeholder="Final quote amount" />
+                      <input className="pp-input px-4 py-3" type="number" min="0" value={quote.amount} onChange={(e) => setQuote((current) => ({ ...current, amount: e.target.value }))} placeholder="Base quote amount" />
                       <input className="pp-input px-4 py-3" type="number" min="0" max="100" value={quote.discountPercent} onChange={(e) => setQuote((current) => ({ ...current, discountPercent: e.target.value }))} placeholder="Package discount %" />
                       <textarea className="pp-input px-4 py-3 md:col-span-2" rows={4} value={quote.scope} onChange={(e) => setQuote((current) => ({ ...current, scope: e.target.value }))} placeholder="Final scope, selected services, and timing" />
                       <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={quote.deliverables} onChange={(e) => setQuote((current) => ({ ...current, deliverables: e.target.value }))} placeholder="Deliverables: video review, PDF notes, drills, strategy plan, etc." />
                       <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={quote.uploadInstructions} onChange={(e) => setQuote((current) => ({ ...current, uploadInstructions: e.target.value }))} placeholder="What the customer should upload after paying" />
                     </div>
+
+                    <div className="mt-4 rounded-2xl border border-[#00a896]/20 bg-[#eaf9f7] p-4">
+                      <div className="font-black text-[#12372a]">Required customer upload after payment</div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <button type="button" onClick={() => toggleRequiredUploadType("video")} className={`rounded-2xl border p-4 text-left font-black ${quote.requiredUploadTypes?.includes("video") ? "border-[#087f73] bg-white text-[#087f73]" : "border-[#12372a]/10 bg-white/60 text-[#40584f]"}`}>
+                          <FaVideo className="mr-2 inline" /> Video submission
+                          <input className="pp-input mt-3 px-3 py-2" type="number" min="0" value={quote.videoAdditionalCost} onClick={(e) => e.stopPropagation()} onChange={(e) => setQuote((current) => ({ ...current, videoAdditionalCost: e.target.value }))} placeholder="Optional video add-on $" />
+                        </button>
+                        <button type="button" onClick={() => toggleRequiredUploadType("pdf")} className={`rounded-2xl border p-4 text-left font-black ${quote.requiredUploadTypes?.includes("pdf") ? "border-[#087f73] bg-white text-[#087f73]" : "border-[#12372a]/10 bg-white/60 text-[#40584f]"}`}>
+                          <FaFilePdf className="mr-2 inline" /> PDF/document submission
+                          <input className="pp-input mt-3 px-3 py-2" type="number" min="0" value={quote.pdfAdditionalCost} onClick={(e) => e.stopPropagation()} onChange={(e) => setQuote((current) => ({ ...current, pdfAdditionalCost: e.target.value }))} placeholder="Optional PDF add-on $" />
+                        </button>
+                      </div>
+                      <div className="mt-3 rounded-2xl bg-white p-3 text-sm font-black text-[#12372a]">
+                        Final quote total: ${finalQuoteTotal.toFixed(2)}
+                      </div>
+                    </div>
+
                     <div className="mt-4 rounded-2xl border border-[#12372a]/10 bg-white p-4">
                       <div className="flex items-center justify-between">
                         <b>Order-specific split coaches</b>
@@ -277,15 +425,22 @@ export default function Messages({ embedded = false }) {
                           </select>
                           <input className="pp-input px-3 py-2" value={split.label || ""} onChange={(e) => updateSplit(index, "label", e.target.value)} placeholder="Label / coach name" />
                           <input className="pp-input px-3 py-2" type="number" min="1" max="100" value={split.percentage} onChange={(e) => updateSplit(index, "percentage", e.target.value)} placeholder="%" />
-                          <button type="button" onClick={() => removeSplit(index)} className="rounded-full bg-[#ffebe5] px-3 py-2 text-[#7a2b18]"><FaTrash /></button>
+                          <button type="button" onClick={() => removeSplit(index)} className="rounded-full bg-[#ffebe5] px-3 py-2 text-[#7a2b18]">
+                            <FaTrash />
+                          </button>
                         </div>
                       ))}
                     </div>
-                    <button onClick={sendQuote} disabled={busy || !quote.amount} className="pp-btn-primary mt-3 px-4 py-2">Send quote for approval</button>
+
+                    <button onClick={sendQuote} disabled={busy || !quote.amount} className="pp-btn-primary mt-3 px-4 py-2">
+                      Send quote for approval
+                    </button>
                   </section>
                 )}
               </>
-            ) : <div className="py-24 text-center text-[#5f746c]">Select a conversation to view messages and quote details.</div>}
+            ) : (
+              <div className="py-24 text-center text-[#5f746c]">Select a conversation to view messages and quote details.</div>
+            )}
           </main>
         </div>
       </div>
@@ -294,7 +449,12 @@ export default function Messages({ embedded = false }) {
 }
 
 function Metric({ label, value }) {
-  return <div className="min-w-32 rounded-2xl bg-[#eaf9f7] px-4 py-3"><div className="text-2xl font-black text-[#12372a]">{value}</div><div className="text-xs font-bold text-[#40584f]">{label}</div></div>;
+  return (
+    <div className="min-w-32 rounded-2xl bg-[#eaf9f7] px-4 py-3">
+      <div className="text-2xl font-black text-[#12372a]">{value}</div>
+      <div className="text-xs font-bold text-[#40584f]">{label}</div>
+    </div>
+  );
 }
 
 function Status({ value }) {

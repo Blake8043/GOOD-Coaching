@@ -4,7 +4,9 @@ const UPLOAD_TYPES = ["video", "pdf"];
 
 function normalizeUploadTypes(values, fallback = ["video"]) {
   const raw = Array.isArray(values) ? values : values ? [values] : [];
-  const cleaned = raw.map((value) => String(value || "").trim().toLowerCase()).filter((value) => UPLOAD_TYPES.includes(value));
+  const cleaned = raw
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter((value) => UPLOAD_TYPES.includes(value));
   const unique = [...new Set(cleaned)];
   return unique.length ? unique : fallback;
 }
@@ -30,9 +32,21 @@ const videoSubmissionSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     goals: { type: String, default: "" },
     skillLevel: { type: String, default: "" },
-    allowedUploadTypes: { type: [String], enum: UPLOAD_TYPES, default: ["video"], set: (values) => normalizeUploadTypes(values) },
-    requiredUploadTypes: { type: [String], enum: UPLOAD_TYPES, default: ["video"], set: (values) => normalizeUploadTypes(values) },
+
+    allowedUploadTypes: {
+      type: [String],
+      enum: UPLOAD_TYPES,
+      default: ["video"],
+      set: (values) => normalizeUploadTypes(values),
+    },
+    requiredUploadTypes: {
+      type: [String],
+      enum: UPLOAD_TYPES,
+      default: ["video"],
+      set: (values) => normalizeUploadTypes(values),
+    },
     uploadInstructions: { type: String, default: "" },
+
     provider: { type: String, enum: ["cloudflare"], default: "cloudflare" },
     uploadUrl: String,
     uploadId: String,
@@ -41,10 +55,22 @@ const videoSubmissionSchema = new mongoose.Schema(
     videoUrl: String,
     thumbnailUrl: String,
     durationSeconds: Number,
+
     documents: [documentAttachmentSchema],
+
     status: {
       type: String,
-      enum: ["awaiting_payment", "awaiting_upload", "uploading", "processing", "ready_for_review", "in_review", "reviewed", "needs_revision", "canceled"],
+      enum: [
+        "awaiting_payment",
+        "awaiting_upload",
+        "uploading",
+        "processing",
+        "ready_for_review",
+        "in_review",
+        "reviewed",
+        "needs_revision",
+        "canceled",
+      ],
       default: "awaiting_upload",
       index: true,
     },
@@ -63,10 +89,10 @@ videoSubmissionSchema.methods.hasRequiredUploads = function hasRequiredUploads()
 videoSubmissionSchema.pre("validate", async function hydrateUploadRulesFromQuote(next) {
   try {
     if (!this.orderId) return next();
-    if ((this.allowedUploadTypes || []).length && this.uploadInstructions) return next();
 
     const Order = require("./Order");
     const Inquiry = require("./Inquiry");
+
     const order = await Order.findById(this.orderId).select("metadata");
     const inquiryId = order?.metadata?.inquiryId;
     if (!inquiryId) return next();
