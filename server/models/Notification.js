@@ -1,21 +1,14 @@
 const mongoose = require("mongoose");
 
-const VALID_NOTIFICATION_TYPES = [
-  "message",
-  "quote_sent",
-  "quote_approved",
-  "quote_declined",
-  "payment_pending",
-  "payment_paid",
-  "payment_review",
-  "support",
-  "system",
-];
-
 const notificationSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    type: { type: String, enum: VALID_NOTIFICATION_TYPES, default: "system", index: true },
+    type: {
+      type: String,
+      enum: ["message", "quote_sent", "quote_approved", "quote_declined", "payment_pending", "payment_paid", "payment_review", "support", "system"],
+      default: "system",
+      index: true,
+    },
     title: { type: String, required: true, maxlength: 160 },
     body: { type: String, default: "", maxlength: 500 },
     link: { type: String, default: "" },

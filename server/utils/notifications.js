@@ -5,19 +5,12 @@ function safeString(value, max = 500) {
 }
 
 function dedupeFilter(userId, payload = {}) {
-  const filter = {
-    userId,
-    type: payload.type || "system",
-  };
-
+  const filter = { userId, type: payload.type || "system" };
   if (payload.inquiryId) filter.inquiryId = payload.inquiryId;
   if (payload.orderId) filter.orderId = payload.orderId;
   if (payload.paymentSplitId) filter.paymentSplitId = payload.paymentSplitId;
   if (payload.ticketId) filter.ticketId = payload.ticketId;
-
-  // If no entity id exists, allow normal creation because messages can repeat.
-  const hasEntity = filter.inquiryId || filter.orderId || filter.paymentSplitId || filter.ticketId;
-  return hasEntity ? filter : null;
+  return filter.inquiryId || filter.orderId || filter.paymentSplitId || filter.ticketId ? filter : null;
 }
 
 async function notifyUser(userId, payload = {}) {
@@ -35,27 +28,19 @@ async function notifyUser(userId, payload = {}) {
     orderId: payload.orderId || undefined,
     paymentSplitId: payload.paymentSplitId || undefined,
     ticketId: payload.ticketId || undefined,
+    readAt: null,
+    dismissedAt: null,
   };
 
   try {
     const filter = dedupeFilter(uid, payload);
-
     if (filter) {
       return await Notification.findOneAndUpdate(
         filter,
-        {
-          $setOnInsert: doc,
-          $set: {
-            title: doc.title,
-            body: doc.body,
-            link: doc.link,
-            dismissedAt: null,
-          },
-        },
+        { $setOnInsert: doc, $set: { title: doc.title, body: doc.body, link: doc.link, actorId: doc.actorId, readAt: null, dismissedAt: null } },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     }
-
     return await Notification.create(doc);
   } catch (err) {
     console.error("Notification create failed:", err.message || err);
@@ -65,11 +50,7 @@ async function notifyUser(userId, payload = {}) {
 
 async function notifyMany(userIds = [], payload = {}) {
   const unique = [...new Set((userIds || []).map((id) => String(id || "").trim()).filter(Boolean))];
-
   return Promise.all(unique.map((id) => notifyUser(id, payload)));
 }
 
-module.exports = {
-  notifyUser,
-  notifyMany,
-};
+module.exports = { notifyUser, notifyMany };
