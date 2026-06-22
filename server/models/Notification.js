@@ -5,17 +5,7 @@ const notificationSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: {
       type: String,
-      enum: [
-        "message",
-        "quote_sent",
-        "quote_approved",
-        "quote_declined",
-        "payment_pending",
-        "payment_paid",
-        "payment_review",
-        "support",
-        "system",
-      ],
+      enum: ["message", "quote_sent", "quote_approved", "quote_declined", "payment_pending", "payment_paid", "payment_review", "support", "system"],
       default: "system",
       index: true,
     },

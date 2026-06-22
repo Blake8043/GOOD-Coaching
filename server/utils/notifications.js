@@ -39,6 +39,14 @@ async function notifyUser(userId, payload = {}) {
     const filter = dedupeFilter(uid, payload);
 
     if (filter) {
+      const existing = await Notification.findOne(filter);
+
+      // Derived notifications such as old support/payment rows should not reopen after "Dismiss all".
+      // New direct events like messages/quotes can reopen because payload.reopen is not false.
+      if (existing && existing.dismissedAt && payload.reopen === false) {
+        return existing;
+      }
+
       return await Notification.findOneAndUpdate(
         filter,
         {
@@ -48,8 +56,8 @@ async function notifyUser(userId, payload = {}) {
             body: doc.body,
             link: doc.link,
             actorId: doc.actorId,
-            readAt: null,
-            dismissedAt: null,
+            readAt: payload.reopen === false && existing?.readAt ? existing.readAt : null,
+            dismissedAt: payload.reopen === false && existing?.dismissedAt ? existing.dismissedAt : null,
           },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -68,4 +76,7 @@ async function notifyMany(userIds = [], payload = {}) {
   return Promise.all(unique.map((id) => notifyUser(id, payload)));
 }
 
-module.exports = { notifyUser, notifyMany };
+module.exports = {
+  notifyUser,
+  notifyMany,
+};

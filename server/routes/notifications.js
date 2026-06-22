@@ -6,7 +6,6 @@ const CoachProfile = require("../models/CoachProfile");
 const Ticket = require("../models/Ticket");
 const Order = require("../models/Order");
 const PaymentSplit = require("../models/PaymentSplit");
-const User = require("../models/User");
 const { notifyUser } = require("../utils/notifications");
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -24,21 +23,21 @@ function isAdminish(req) {
   return role === "admin" || role === "employee";
 }
 
+async function inquiryFilterFor(req) {
+  const uid = userIdOf(req);
+
+  if (isAdminish(req)) return {};
+
+  const coach = await CoachProfile.findOne({ userId: uid }).select("_id");
+  const filter = coach ? { $or: [{ playerId: uid }, { coachId: coach._id }] } : { playerId: uid };
+  filter.deletedFor = { $ne: uid };
+  filter.archivedFor = { $ne: uid };
+  return filter;
+}
+
 async function inquiryUnreadCountFor(req) {
   const uid = userIdOf(req);
-  const role = String(req.user?.role || "").toLowerCase();
-
-  let filter;
-
-  if (isAdminish(req)) {
-    filter = {};
-  } else {
-    const coach = await CoachProfile.findOne({ userId: uid }).select("_id");
-    filter = coach ? { $or: [{ playerId: uid }, { coachId: coach._id }] } : { playerId: uid };
-    filter.deletedFor = { $ne: uid };
-    filter.archivedFor = { $ne: uid };
-  }
-
+  const filter = await inquiryFilterFor(req);
   const rows = await Inquiry.find(filter).select("messages").limit(200);
   let unread = 0;
 
@@ -57,9 +56,7 @@ async function ensureSupportNotifications(req) {
   if (!isAdminish(req)) return;
 
   const uid = userIdOf(req);
-  const tickets = await Ticket.find({ status: { $in: ["open", "in_progress"] } })
-    .sort({ createdAt: -1 })
-    .limit(25);
+  const tickets = await Ticket.find({ status: { $in: ["open", "in_progress"] } }).sort({ createdAt: -1 }).limit(25);
 
   await Promise.all(
     tickets.map((ticket) =>
@@ -69,6 +66,7 @@ async function ensureSupportNotifications(req) {
         body: `${ticket.name || "Customer"}: ${ticket.subject || ticket.service || "Support request"}`,
         link: "/admin/requests",
         ticketId: ticket._id,
+        reopen: false,
       })
     )
   );
@@ -96,10 +94,10 @@ async function ensurePaymentNotifications(req) {
           body: order.status === "paid" || order.status === "awaiting_upload" ? "Your upload is unlocked." : "Complete checkout to continue.",
           link: order.submissionId ? `/dashboard/submissions/${order.submissionId}` : "/dashboard/submissions",
           orderId: order._id,
+          reopen: false,
         })
       )
     );
-
     return;
   }
 
@@ -124,10 +122,10 @@ async function ensurePaymentNotifications(req) {
           link: "/coach/dashboard#profile",
           paymentSplitId: split._id,
           orderId: split.orderId,
+          reopen: false,
         })
       )
     );
-
     return;
   }
 
@@ -148,6 +146,7 @@ async function ensurePaymentNotifications(req) {
           link: "/admin/orders",
           paymentSplitId: split._id,
           orderId: split.orderId,
+          reopen: false,
         })
       )
     );
@@ -168,10 +167,8 @@ router.get(
       Notification.find({ userId: uid, dismissedAt: null }).sort({ createdAt: -1 }).limit(5),
     ]);
 
-    const total = storedUnread + messageUnread;
-
     res.json({
-      total,
+      total: storedUnread + messageUnread,
       unread: storedUnread,
       messages: messageUnread,
       latest,
@@ -183,13 +180,7 @@ router.get(
   "/",
   auth,
   asyncHandler(async (req, res) => {
-    const rows = await Notification.find({
-      userId: userIdOf(req),
-      dismissedAt: null,
-    })
-      .sort({ createdAt: -1 })
-      .limit(50);
-
+    const rows = await Notification.find({ userId: userIdOf(req), dismissedAt: null }).sort({ createdAt: -1 }).limit(50);
     res.json(rows);
   })
 );
@@ -204,6 +195,38 @@ router.post(
     );
 
     res.json({ ok: true });
+  })
+);
+
+router.post(
+  "/dismiss-all",
+  auth,
+  asyncHandler(async (req, res) => {
+    const uid = userIdOf(req);
+    const now = new Date();
+
+    await Notification.updateMany(
+      { userId: uid, dismissedAt: null },
+      { $set: { readAt: now, dismissedAt: now } }
+    );
+
+    const filter = await inquiryFilterFor(req);
+    const rows = await Inquiry.find(filter).select("messages");
+
+    await Promise.all(
+      rows.map(async (row) => {
+        let changed = false;
+        row.messages.forEach((msg) => {
+          if (!same(msg.senderId, uid) && !(msg.readBy || []).some((id) => same(id, uid))) {
+            msg.readBy.push(uid);
+            changed = true;
+          }
+        });
+        if (changed) await row.save();
+      })
+    );
+
+    res.json({ ok: true, dismissed: true });
   })
 );
 
