@@ -65,15 +65,39 @@ async function access(req, id) {
   if (isDeletedFor(row, req)) return false;
   return row;
 }
+function objectIdString(value) {
+  if (!value) return "";
+  if (typeof value === "object") {
+    const nested = value._id || value.id || value.value || value.coachId || value.recipientCoachId;
+    if (nested && nested !== value) return objectIdString(nested);
+    if (typeof value.toHexString === "function") return cleanBody(value.toHexString(), 80);
+    if (typeof value.toString === "function" && value.toString !== Object.prototype.toString) return cleanBody(value.toString(), 80);
+    return "";
+  }
+  return cleanBody(value, 80);
+}
+function validObjectId(value) {
+  return /^[a-f0-9]{24}$/i.test(String(value || ""));
+}
 function cleanSplitRecipients(value = []) {
   if (!Array.isArray(value)) return [];
-  const rows = value
+  const normalized = value
     .map((item) => ({
-      coachId: cleanBody(item?.coachId || item?.recipientCoachId, 80),
+      coachId: objectIdString(item?.coachId || item?.recipientCoachId),
       label: cleanBody(item?.label, 120),
       percentage: Number(item?.percentage || 0),
     }))
-    .filter((item) => item.coachId && item.percentage > 0 && item.percentage <= 100)
+    .filter((item) => item.coachId || item.percentage > 0);
+
+  const invalid = normalized.find((item) => item.percentage > 0 && !validObjectId(item.coachId));
+  if (invalid) {
+    const error = new Error("Choose a valid coach for every quote split recipient.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const rows = normalized
+    .filter((item) => validObjectId(item.coachId) && item.percentage > 0 && item.percentage <= 100)
     .slice(0, 5);
 
   const total = rows.reduce((sum, item) => sum + item.percentage, 0);
@@ -320,6 +344,11 @@ router.post("/:id/quote", auth, asyncHandler(async (req, res) => {
   row.lastMessageAt = new Date();
   row.archivedFor = [];
   row.deletedFor = [];
+  row.messages.push({
+    senderId: userIdOf(req),
+    body: `Coach sent a custom quote for $${finalAmount.toFixed(2)}. Please review, approve, or decline it.`,
+    readBy: [userIdOf(req)],
+  });
 
   await row.save();
 
