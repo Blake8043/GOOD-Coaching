@@ -171,6 +171,42 @@ async function loadCoachSplitRecipients(coach) {
   });
 }
 
+async function loadInquiryQuoteSplitRecipients(inquiry, coach) {
+  const rules = Array.isArray(inquiry?.quote?.splitRecipients) ? inquiry.quote.splitRecipients : [];
+  const cleaned = rules
+    .map((item) => ({
+      coachId: String(item?.coachId?._id || item?.coachId || "").trim(),
+      label: String(item?.label || "").trim(),
+      percentage: safeNumber(item?.percentage, 0),
+    }))
+    .filter((item) => validObjectId(item.coachId) && item.percentage > 0 && item.percentage <= 100);
+
+  if (!cleaned.length) return loadCoachSplitRecipients(coach);
+
+  const total = cleaned.reduce((sum, item) => sum + item.percentage, 0);
+  if (total > 100) {
+    const error = new Error("Quote split percentages cannot exceed 100% of the coach payout.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const recipientCoaches = await CoachProfile.find({ _id: { $in: cleaned.map((item) => item.coachId) } })
+    .select("displayName stripeAccountId")
+    .lean();
+  const byId = new Map(recipientCoaches.map((item) => [String(item._id), item]));
+
+  return cleaned.map((item, index) => {
+    const recipient = byId.get(item.coachId);
+    return {
+      coachId: recipient?._id || item.coachId,
+      stripeAccountId: recipient?.stripeAccountId || "",
+      label: item.label || recipient?.displayName || `Quote split recipient ${index + 1}`,
+      role: "coach",
+      percentage: item.percentage,
+    };
+  });
+}
+
 function buildSplit({ total, platformFeePercent = PLATFORM_FEE_PERCENT, coach, manualSplits = [] }) {
   const cleanTotal = safeNumber(total, 0);
   const cleanPlatformPercent = safeNumber(platformFeePercent, PLATFORM_FEE_PERCENT);
@@ -582,7 +618,7 @@ router.post(
     if (!Number.isFinite(total) || total <= 0) return res.status(400).json({ error: "This quote does not have a valid amount." });
 
     const clientUrl = requirePublicClientUrl(req);
-    const splitRecipients = await loadCoachSplitRecipients(coach);
+    const splitRecipients = await loadInquiryQuoteSplitRecipients(inquiry, coach);
     const split = buildSplit({ total, platformFeePercent: PLATFORM_FEE_PERCENT, coach, manualSplits: splitRecipients });
     const platformOnly = shouldUsePlatformOnlyStripe(coach);
 
@@ -681,7 +717,8 @@ router.post(
     if (existing?.stripeCheckoutUrl && existing.status === "pending") return res.json({ checkoutUrl: existing.stripeCheckoutUrl, order: existing });
     if (existing?.status === "paid") return res.status(400).json({ error: "This quote has already been paid." });
 
-    const split = buildSplit({ total, platformFeePercent: 10, coach });
+    const splitRecipients = await loadInquiryQuoteSplitRecipients(inquiry, coach);
+    const split = buildSplit({ total, platformFeePercent: PLATFORM_FEE_PERCENT, coach, manualSplits: splitRecipients });
     const order = await Order.create({ userId: req.user._id, coachId: coach._id, number: createOrderNumber(), orderType: "coaching", items: [{ name: inquiry.subject, price: total, qty: 1, tag: "custom_quote" }], status: "pending", subtotal: total, tax: 0, total, platformFee: split.platformFee, paymentMode: "stripe_destination_charge", metadata: { inquiryId: String(inquiry._id) } });
     const submission = await VideoSubmission.create({ playerId: req.user._id, coachId: coach._id, orderId: order._id, title: inquiry.subject, description: inquiry.quote.scope || "", status: "awaiting_payment", dueAt: new Date(Date.now() + Number(coach.turnaroundHours || 72) * 60 * 60 * 1000) });
     order.submissionId = submission._id;
