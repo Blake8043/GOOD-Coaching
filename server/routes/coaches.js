@@ -310,10 +310,14 @@ router.get(
     }
 
     const filter = req.user.role === "admin" && !profile ? {} : { coachId: profile._id };
+    const visibleSubmissionFilter = { ...filter, status: { $nin: ["awaiting_payment", "canceled"] } };
+    const visibleSplitFilter = profile
+      ? { "recipients.coachId": profile._id, status: { $ne: "pending" } }
+      : { status: { $ne: "pending" } };
     const [packages, submissions, splits, inquiries, availableCoaches] = await Promise.all([
       profile ? CoachingPackage.find({ coachId: profile._id }).sort({ createdAt: -1 }) : [],
-      VideoSubmission.find(filter).sort({ status: 1, dueAt: 1, createdAt: -1 }).populate("playerId", "fullName email").populate("packageId", "title reviewType turnaroundHours maxVideoMinutes"),
-      PaymentSplit.find(profile ? { "recipients.coachId": profile._id } : {}).sort({ createdAt: -1 }).limit(25),
+      VideoSubmission.find(visibleSubmissionFilter).sort({ status: 1, dueAt: 1, createdAt: -1 }).populate("playerId", "fullName email").populate("packageId", "title reviewType turnaroundHours maxVideoMinutes"),
+      PaymentSplit.find(visibleSplitFilter).sort({ createdAt: -1 }).limit(25),
       profile ? Inquiry.find({ coachId: profile._id, deletedFor: { $ne: req.user._id }, archivedFor: { $ne: req.user._id }, status: { $nin: ["archived", "closed"] } }).sort({ updatedAt: -1 }).limit(25).populate("playerId", "fullName email phone") : [],
       profile
         ? CoachProfile.find({ _id: { $ne: profile._id }, approved: true })
@@ -348,10 +352,14 @@ router.get(
     }
 
     const filter = req.user.role === "admin" && !profile ? {} : { coachId: profile._id };
+    const visibleSubmissionFilter = { ...filter, status: { $nin: ["awaiting_payment", "canceled"] } };
+    const visibleSplitFilter = profile
+      ? { "recipients.coachId": profile._id, status: { $ne: "pending" } }
+      : { status: { $ne: "pending" } };
     const [packages, submissions, splits, inquiries] = await Promise.all([
       profile ? CoachingPackage.find({ coachId: profile._id }).sort({ createdAt: -1 }) : [],
-      VideoSubmission.find(filter).sort({ status: 1, dueAt: 1, createdAt: -1 }).populate("playerId", "fullName email").populate("packageId", "title reviewType turnaroundHours maxVideoMinutes"),
-      PaymentSplit.find({}).sort({ createdAt: -1 }).limit(25),
+      VideoSubmission.find(visibleSubmissionFilter).sort({ status: 1, dueAt: 1, createdAt: -1 }).populate("playerId", "fullName email").populate("packageId", "title reviewType turnaroundHours maxVideoMinutes"),
+      PaymentSplit.find(visibleSplitFilter).sort({ createdAt: -1 }).limit(25),
       profile ? Inquiry.find({ coachId: profile._id, deletedFor: { $ne: req.user._id }, archivedFor: { $ne: req.user._id }, status: { $nin: ["archived", "closed"] } }).sort({ updatedAt: -1 }).limit(25).populate("playerId", "fullName email phone") : [],
     ]);
 

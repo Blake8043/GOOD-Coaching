@@ -342,7 +342,7 @@ export default function CoachProfile() {
                     <h3 className="font-black text-[#12372a]">{pkg.title}</h3>
                     <span className="rounded-full bg-[#c6ff4a] px-3 py-1 text-sm font-black">{money(pkg.price)}</span>
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-[#40584f]">{pkg.description}</p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#40584f]">{pkg.description}</p>
                   {!!includedDeliverables(pkg).length && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {includedDeliverables(pkg).map((item) => (
