@@ -6,8 +6,10 @@ import {
   FaClipboardList,
   FaComments,
   FaDollarSign,
+  FaEdit,
   FaHandshake,
   FaPlus,
+  FaTimes,
   FaTrash,
   FaUserEdit,
 } from "react-icons/fa";
@@ -32,6 +34,7 @@ const initialPackage = {
   includesTranscriptPdf: false,
   includesDrillPlanPdf: true,
   includesResponseVideo: false,
+  active: true,
 };
 
 const PACKAGE_TEMPLATES = [
@@ -175,6 +178,7 @@ export default function CoachDashboard() {
 
   const [data, setData] = useState(null);
   const [pkg, setPkg] = useState(initialPackage);
+  const [editingPackageId, setEditingPackageId] = useState(null);
   const [profileForm, setProfileForm] = useState(null);
   const [splitDraft, setSplitDraft] = useState({ recipientCoachId: "", percentage: "", label: "" });
   const [busy, setBusy] = useState(false);
@@ -232,6 +236,47 @@ export default function CoachDashboard() {
   );
 
   const updateProfileField = (key, value) => setProfileForm((current) => ({ ...current, [key]: value }));
+
+  const resetPackageForm = () => {
+    setPkg(initialPackage);
+    setEditingPackageId(null);
+  };
+
+  const packagePayload = (source = pkg) => ({
+    title: source.title,
+    description: source.description,
+    price: Number(source.price || 0),
+    reviewType: source.reviewType,
+    turnaroundHours: Number(source.turnaroundHours || 48),
+    maxVideoMinutes: Math.min(Number(source.maxVideoMinutes || 15), 15),
+    discountPercent: Number(source.discountPercent || 0),
+    packageDeal: Boolean(source.packageDeal || Number(source.discountPercent || 0) > 0 || source.reviewType === "package_discount"),
+    includesVoiceAnalysis: Boolean(source.includesVoiceAnalysis),
+    includesTranscriptPdf: Boolean(source.includesTranscriptPdf),
+    includesDrillPlanPdf: Boolean(source.includesDrillPlanPdf),
+    includesResponseVideo: Boolean(source.includesResponseVideo),
+    active: source.active !== false,
+  });
+
+  const beginEditPackage = (item) => {
+    setEditingPackageId(item._id);
+    setPkg({
+      title: item.title || "",
+      description: item.description || "",
+      price: item.price ?? "",
+      reviewType: item.reviewType || "single_video",
+      turnaroundHours: item.turnaroundHours ?? "",
+      maxVideoMinutes: Math.min(Number(item.maxVideoMinutes || 15), 15),
+      discountPercent: item.discountPercent ?? "",
+      packageDeal: Boolean(item.packageDeal),
+      includesVoiceAnalysis: Boolean(item.includesVoiceAnalysis),
+      includesTranscriptPdf: Boolean(item.includesTranscriptPdf),
+      includesDrillPlanPdf: Boolean(item.includesDrillPlanPdf),
+      includesResponseVideo: Boolean(item.includesResponseVideo),
+      active: item.active !== false,
+    });
+    document.getElementById("offerings")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const uploadProfilePhoto = async (file) => {
     if (!file) return;
@@ -316,6 +361,7 @@ export default function CoachDashboard() {
     try {
       await api.delete(`/coaches/me/packages/${packageId}`, token);
       push("Coaching plan deleted.", "success");
+      if (editingPackageId === packageId) resetPackageForm();
       await load();
     } catch (err) {
       push(err.message || "Plan could not be deleted.", "error");
@@ -324,24 +370,19 @@ export default function CoachDashboard() {
     }
   };
 
-  const createPackage = async (e) => {
+  const savePackage = async (e) => {
     e.preventDefault();
     setBusy(true);
 
     try {
-      await api.post(
-        "/coaches/packages",
-        {
-          ...pkg,
-          price: Number(pkg.price || 0),
-          discountPercent: Number(pkg.discountPercent || 0),
-          maxVideoMinutes: Math.min(Number(pkg.maxVideoMinutes || 15), 15),
-          packageDeal: Boolean(pkg.packageDeal || Number(pkg.discountPercent || 0) > 0 || pkg.reviewType === "package_discount"),
-        },
-        token
-      );
-      push("Package created.", "success");
-      setPkg(initialPackage);
+      if (editingPackageId) {
+        await api.put(`/coaches/me/packages/${editingPackageId}`, packagePayload(), token);
+        push("Coaching plan updated.", "success");
+      } else {
+        await api.post("/coaches/packages", packagePayload(), token);
+        push("Package created.", "success");
+      }
+      resetPackageForm();
       load();
     } catch (err) {
       push(err.message || "Plan was not saved. Check the required fields and try again.", "error");
@@ -595,12 +636,12 @@ export default function CoachDashboard() {
           </section>
 
           <section id="offerings" className="scroll-mt-28 rounded-[2rem] border border-[#12372a]/10 bg-white/84 p-5 shadow-sm">
-            <h2 className="text-2xl font-black text-[#12372a]">Create online coaching option</h2>
+            <h2 className="text-2xl font-black text-[#12372a]">{editingPackageId ? "Edit online coaching option" : "Create online coaching option"}</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#40584f]">
               Public plans need a price greater than $0 before customers can purchase them.
             </p>
 
-            <form onSubmit={createPackage} className="mt-5 grid gap-3">
+            <form onSubmit={savePackage} className="mt-5 grid gap-3">
               <select
                 className="pp-input px-4 py-3"
                 value=""
@@ -658,13 +699,25 @@ export default function CoachDashboard() {
                 ))}
               </div>
 
-              <div className="grid gap-2 rounded-2xl border border-[#12372a]/10 bg-white p-4 text-sm font-bold text-[#12372a]">
-                {[['includesVoiceAnalysis','Voice-recorded analysis'],['includesTranscriptPdf','Transcript PDF'],['includesDrillPlanPdf','Downloadable drill-plan PDF']].map(([key,label]) => <label key={key} className="flex items-center gap-2"><input type="checkbox" checked={Boolean(pkg[key])} onChange={(e)=>setPkg((p)=>({...p,[key]:e.target.checked}))}/>{label}</label>)}
-              </div>
+              <label className="flex items-start gap-3 rounded-2xl border border-[#12372a]/10 bg-white p-4 font-bold text-[#12372a]">
+                <input type="checkbox" className="mt-1" checked={pkg.active !== false} onChange={(e) => setPkg((p) => ({ ...p, active: e.target.checked }))} />
+                <span>
+                  Show publicly
+                  <span className="mt-1 block text-xs font-semibold leading-5 text-[#40584f]">Turn this off to save changes without offering the plan for purchase.</span>
+                </span>
+              </label>
 
-              <button className="pp-btn-primary px-4 py-3 disabled:opacity-60" disabled={busy}>
-                <FaPlus className="mr-2" /> {busy ? "Saving..." : "Publish Buy-Now Plan"}
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button className="pp-btn-primary px-4 py-3 disabled:opacity-60" disabled={busy}>
+                  {editingPackageId ? <FaEdit className="mr-2" /> : <FaPlus className="mr-2" />}
+                  {busy ? "Saving..." : editingPackageId ? "Save Plan Changes" : "Publish Buy-Now Plan"}
+                </button>
+                {editingPackageId && (
+                  <button type="button" onClick={resetPackageForm} className="pp-btn-secondary px-4 py-3" disabled={busy}>
+                    <FaTimes className="mr-2" /> Cancel edit
+                  </button>
+                )}
+              </div>
             </form>
 
             <h3 className="mt-6 font-black text-[#12372a]">Current coaching plans</h3>
@@ -687,7 +740,13 @@ export default function CoachDashboard() {
                       <button type="button" onClick={() => deletePackage(item._id)} disabled={busy} className="rounded-full bg-[#ffebe5] px-3 py-1 text-xs font-black text-[#7a2b18]">
                         <FaTrash className="mr-1 inline" /> Delete
                       </button>
+                      <button type="button" onClick={() => beginEditPackage(item)} disabled={busy} className="rounded-full bg-white px-3 py-1 text-xs font-black text-[#087f73]">
+                        <FaEdit className="mr-1 inline" /> Edit
+                      </button>
                     </div>
+                  </div>
+                  <div className="mt-3 whitespace-pre-wrap rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#40584f]">
+                    {item.description || "No description provided."}
                   </div>
                   {!!deliverables(item).length && <div className="mt-2 text-xs font-bold text-[#087f73]">{deliverables(item).join(" / ")}</div>}
                 </div>

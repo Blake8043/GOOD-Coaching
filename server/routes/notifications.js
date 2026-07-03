@@ -105,13 +105,26 @@ async function ensurePaymentNotifications(req) {
     const coach = await CoachProfile.findOne({ userId: uid }).select("_id");
     if (!coach) return;
 
-    const splits = await PaymentSplit.find({
-      "recipients.coachId": coach._id,
-      status: { $in: ["paid", "requires_manual_review", "failed", "pending"] },
-      updatedAt: { $gte: since },
-    })
-      .sort({ updatedAt: -1 })
-      .limit(20);
+    const [splits, pendingSplitIds] = await Promise.all([
+      PaymentSplit.find({
+        "recipients.coachId": coach._id,
+        status: { $in: ["paid", "requires_manual_review", "failed"] },
+        updatedAt: { $gte: since },
+      })
+        .sort({ updatedAt: -1 })
+        .limit(20),
+      PaymentSplit.find({
+        "recipients.coachId": coach._id,
+        status: "pending",
+      }).distinct("_id"),
+    ]);
+
+    if (pendingSplitIds.length) {
+      await Notification.updateMany(
+        { userId: uid, paymentSplitId: { $in: pendingSplitIds }, dismissedAt: null },
+        { $set: { readAt: new Date(), dismissedAt: new Date() } }
+      );
+    }
 
     await Promise.all(
       splits.map((split) =>
