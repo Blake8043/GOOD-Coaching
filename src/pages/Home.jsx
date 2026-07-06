@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { FaCheckCircle, FaCloudUploadAlt, FaCreditCard, FaStar, FaUserTie } from "react-icons/fa";
 import { api } from "../lib/api";
+import RichTextContent from "../components/RichTextContent";
 
 const steps = [
   { title: "Pick a coach", text: "Choose a coach by skill level, specialty, package, and turnaround time." },
@@ -242,7 +243,7 @@ export default function Home() {
               <div className="mb-4 flex gap-1 text-[#ffb703]">
                 {Array.from({ length: Math.max(Number(item.rating || 5), 1) }).slice(0, 5).map((_, i) => <FaStar key={i} />)}
               </div>
-              <p className="leading-7 text-[#40584f]">“{item.text}”</p>
+              <RichTextContent value={item.text} className="leading-7 text-[#40584f]" />
               <div className="mt-5 font-black text-[#12372a]">{item.name}</div>
               <div className="text-sm font-semibold text-[#5f746c]">{[item.service, item.location].filter(Boolean).join(" / ")}</div>
             </article>

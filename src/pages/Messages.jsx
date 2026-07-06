@@ -14,6 +14,9 @@ import {
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextContent from "../components/RichTextContent";
+import RichTextEditor from "../components/RichTextEditor";
+import { richTextToPlainText } from "../lib/richText";
 
 function userId(value) {
   return String(value?._id || value?.id || value || "");
@@ -127,7 +130,7 @@ export default function Messages({ embedded = false }) {
 
   const send = () =>
     action(async () => {
-      if (!message.trim() || !selected) return;
+      if (!richTextToPlainText(message) || !selected) return;
       const row = await api.post(`/inquiries/${selected._id}/messages`, { message }, token);
       setSelected(row);
       setMessage("");
@@ -317,7 +320,7 @@ export default function Messages({ embedded = false }) {
                     return (
                       <div key={item._id} className={`rounded-2xl p-4 ${mine ? "ml-8 bg-[#d9f7fb]" : "mr-8 bg-white shadow-sm"}`}>
                         <div className="flex items-start justify-between gap-3">
-                          <p className="whitespace-pre-wrap text-sm leading-6 text-[#12372a]">{item.body}</p>
+                          <RichTextContent value={item.body} className="text-sm leading-6 text-[#12372a]" />
                           {(mine || user?.role === "admin") && (
                             <button
                               type="button"
@@ -335,8 +338,8 @@ export default function Messages({ embedded = false }) {
                 </div>
 
                 <div className="flex gap-2">
-                  <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} className="pp-input px-4 py-3" placeholder="Ask about goals, deliverables, timing, or scope..." />
-                  <button onClick={send} disabled={busy || !message.trim()} className="pp-btn-primary px-5">
+                  <RichTextEditor value={message} onChange={setMessage} rows={2} placeholder="Ask about goals, deliverables, timing, or scope..." />
+                  <button onClick={send} disabled={busy || !richTextToPlainText(message)} className="pp-btn-primary px-5">
                     <FaPaperPlane />
                   </button>
                 </div>
@@ -349,8 +352,13 @@ export default function Messages({ embedded = false }) {
                       </h3>
                       <Status value={selected.quote.status} />
                     </div>
-                    <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{selected.quote.scope}</p>
-                    {selected.quote.deliverables && <p className="mt-3 whitespace-pre-wrap text-sm leading-6"><b>Deliverables:</b> {selected.quote.deliverables}</p>}
+                    <RichTextContent value={selected.quote.scope} className="mt-3 text-sm leading-6" />
+                    {selected.quote.deliverables && (
+                      <div className="mt-3 text-sm leading-6">
+                        <b>Deliverables:</b>
+                        <RichTextContent value={selected.quote.deliverables} className="mt-1" />
+                      </div>
+                    )}
                     <div className="mt-3 rounded-2xl bg-white p-3 text-sm font-black text-[#12372a]">
                       Customer will upload after payment: {uploadTypeLabel(selected.quote.requiredUploadTypes || ["video"])}
                     </div>
@@ -365,7 +373,12 @@ export default function Messages({ embedded = false }) {
                         ))}
                       </div>
                     )}
-                    {selected.quote.uploadInstructions && <p className="mt-3 whitespace-pre-wrap text-sm leading-6"><b>After payment upload instructions:</b> {selected.quote.uploadInstructions}</p>}
+                    {selected.quote.uploadInstructions && (
+                      <div className="mt-3 text-sm leading-6">
+                        <b>After payment upload instructions:</b>
+                        <RichTextContent value={selected.quote.uploadInstructions} className="mt-1" />
+                      </div>
+                    )}
                     {!isCoach && selected.quote.status === "sent" && (
                       <div className="mt-4 flex flex-wrap gap-3">
                         <button onClick={approve} disabled={busy} className="pp-btn-primary px-4 py-2">
@@ -390,9 +403,9 @@ export default function Messages({ embedded = false }) {
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <input className="pp-input px-4 py-3" type="number" min="0" value={quote.amount} onChange={(e) => setQuote((current) => ({ ...current, amount: e.target.value }))} placeholder="Base quote amount" />
                       <input className="pp-input px-4 py-3" type="number" min="0" max="100" value={quote.discountPercent} onChange={(e) => setQuote((current) => ({ ...current, discountPercent: e.target.value }))} placeholder="Package discount %" />
-                      <textarea className="pp-input px-4 py-3 md:col-span-2" rows={4} value={quote.scope} onChange={(e) => setQuote((current) => ({ ...current, scope: e.target.value }))} placeholder="Final scope, selected services, and timing" />
-                      <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={quote.deliverables} onChange={(e) => setQuote((current) => ({ ...current, deliverables: e.target.value }))} placeholder="Deliverables: video review, PDF notes, drills, strategy plan, etc." />
-                      <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={quote.uploadInstructions} onChange={(e) => setQuote((current) => ({ ...current, uploadInstructions: e.target.value }))} placeholder="What the customer should upload after paying" />
+                      <RichTextEditor className="md:col-span-2" rows={4} value={quote.scope} onChange={(value) => setQuote((current) => ({ ...current, scope: value }))} placeholder="Final scope, selected services, and timing" />
+                      <RichTextEditor className="md:col-span-2" rows={3} value={quote.deliverables} onChange={(value) => setQuote((current) => ({ ...current, deliverables: value }))} placeholder="Deliverables: video review, PDF notes, drills, strategy plan, etc." />
+                      <RichTextEditor className="md:col-span-2" rows={3} value={quote.uploadInstructions} onChange={(value) => setQuote((current) => ({ ...current, uploadInstructions: value }))} placeholder="What the customer should upload after paying" />
                     </div>
 
                     <div className="mt-4 rounded-2xl border border-[#00a896]/20 bg-[#eaf9f7] p-4">

@@ -18,6 +18,8 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
 import { imageFileToDataUrl } from "../lib/uploads";
 import { normalizePhase } from "../lib/workflow";
+import RichTextEditor from "../components/RichTextEditor";
+import RichTextContent from "../components/RichTextContent";
 
 const PLATFORM_FEE_PERCENT = 10;
 
@@ -518,14 +520,14 @@ export default function CoachDashboard() {
                 Accepting new inquiries
               </label>
 
-              <textarea
-                maxLength={5000}
-                rows={6}
-                className="pp-input px-4 py-3 md:col-span-2"
-                placeholder="Biography and coaching expectations"
-                value={profileForm.bio || ""}
-                onChange={(e) => updateProfileField("bio", e.target.value)}
-              />
+              <div className="md:col-span-2">
+                <RichTextEditor
+                  rows={6}
+                  placeholder="Biography and coaching expectations"
+                  value={profileForm.bio || ""}
+                  onChange={(value) => updateProfileField("bio", value)}
+                />
+              </div>
 
               <div className="rounded-3xl border border-[#12372a]/10 bg-[#fff8e7] p-4 md:col-span-2">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -657,7 +659,7 @@ export default function CoachDashboard() {
               </select>
 
               <input className="pp-input px-4 py-3" placeholder="Package title" value={pkg.title} onChange={(e) => setPkg((p) => ({ ...p, title: e.target.value }))} required />
-              <textarea className="pp-input px-4 py-3" placeholder="Package description" value={pkg.description} onChange={(e) => setPkg((p) => ({ ...p, description: e.target.value }))} rows={4} required />
+              <RichTextEditor placeholder="Package description" value={pkg.description} onChange={(value) => setPkg((p) => ({ ...p, description: value }))} rows={4} required />
 
               <select className="pp-input px-4 py-3" value={pkg.reviewType} onChange={(e) => setPkg((p) => ({ ...p, reviewType: e.target.value, packageDeal: e.target.value === "package_discount" ? true : p.packageDeal }))}>
                 <option value="single_video">Single video review</option>
@@ -745,9 +747,7 @@ export default function CoachDashboard() {
                       </button>
                     </div>
                   </div>
-                  <div className="mt-3 whitespace-pre-wrap rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#40584f]">
-                    {item.description || "No description provided."}
-                  </div>
+                  <RichTextContent value={item.description} empty="No description provided." className="mt-3 rounded-xl bg-white/70 p-3 text-sm leading-6 text-[#40584f]" />
                   {!!deliverables(item).length && <div className="mt-2 text-xs font-bold text-[#087f73]">{deliverables(item).join(" / ")}</div>}
                 </div>
               ))}

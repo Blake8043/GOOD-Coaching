@@ -3,6 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { FaCheckCircle } from "react-icons/fa";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextEditor from "../components/RichTextEditor";
+import { richTextToPlainText } from "../lib/richText";
 
 const SKILL_LEVELS = [
   "Beginner (2.5-3.0)",
@@ -82,7 +84,7 @@ export default function CoachSignup() {
           form.city.trim() &&
           form.state.trim() &&
           form.headline.trim() &&
-          form.bio.trim()
+          richTextToPlainText(form.bio)
       ),
     [form]
   );
@@ -238,12 +240,12 @@ export default function CoachSignup() {
 
             <label className="block md:col-span-2">
               <span className="text-sm text-gray-400">Coach Bio</span>
-              <textarea
-                maxLength={5000}
+              <RichTextEditor
                 rows={8}
                 value={form.bio}
-                onChange={(e) => update("bio", e.target.value)}
-                className="mt-1 w-full rounded-xl border border-white/10 bg-black p-3"
+                onChange={(value) => update("bio", value)}
+                className="mt-1"
+                editorClassName="bg-black"
                 placeholder="Describe your coaching style, experience, online review process, and expectations for players."
                 required
               />

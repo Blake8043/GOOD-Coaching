@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextEditor from "../components/RichTextEditor";
 
 export default function AdminBlogEditor() {
   const { id } = useParams();
@@ -87,11 +88,11 @@ export default function AdminBlogEditor() {
               </label>
               <label className="mb-3 block">
                 <div className="text-sm text-gray-400">Summary</div>
-                <textarea rows={3} className="mt-1 w-full rounded-md border border-white/10 bg-zinc-900 px-3 py-2" value={form.summary} onChange={(e) => setForm((f) => ({ ...f, summary: e.target.value }))} />
+                <RichTextEditor rows={3} className="mt-1" value={form.summary} onChange={(value) => setForm((f) => ({ ...f, summary: value }))} />
               </label>
               <label className="block">
                 <div className="text-sm text-gray-400">Content</div>
-                <textarea rows={12} className="mt-1 w-full rounded-md border border-white/10 bg-zinc-900 px-3 py-2" value={form.content} onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))} />
+                <RichTextEditor rows={12} className="mt-1" value={form.content} onChange={(value) => setForm((f) => ({ ...f, content: value }))} />
               </label>
             </div>
           </div>

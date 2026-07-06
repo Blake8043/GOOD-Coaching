@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextContent from "../components/RichTextContent";
 
 function readable(value) {
   return String(value || "").replaceAll("_", " ");
@@ -214,7 +215,7 @@ export default function AdminCoaching() {
                               </div>
                               <div className="md:col-span-2 xl:col-span-3">
                                 <div className="text-xs font-black uppercase tracking-wider text-[#087f73]">Bio / application statement</div>
-                                <div className="mt-1 whitespace-pre-wrap rounded-2xl bg-white p-4 leading-7 text-[#40584f]">{field(coach.bio)}</div>
+                                <RichTextContent value={coach.bio} className="mt-1 rounded-2xl bg-white p-4 leading-7 text-[#40584f]" />
                               </div>
                             </div>
                           </td>

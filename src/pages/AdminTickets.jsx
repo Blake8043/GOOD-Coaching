@@ -3,6 +3,7 @@ import { FaEnvelope, FaExternalLinkAlt, FaTrash } from "react-icons/fa";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextContent from "../components/RichTextContent";
 
 const statuses = ["open", "in_progress", "resolved", "closed"];
 
@@ -116,7 +117,7 @@ export default function AdminTickets() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="font-semibold text-white">{row.subject || "Service request"}</div>
-                      <div className="mt-1 max-w-md whitespace-pre-wrap text-gray-400">{row.message}</div>
+                      <RichTextContent value={row.message} className="mt-1 max-w-md text-gray-400" />
                       <div className="mt-2 text-xs text-gray-500">Source: {row.source || "website"}</div>
                     </td>
                     <td className="px-4 py-3">

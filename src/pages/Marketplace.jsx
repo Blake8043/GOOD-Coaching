@@ -125,7 +125,7 @@ export default function Marketplace() {
 
                   <div className="mt-4 space-y-2">
                     {(coach.packages || []).slice(0, 3).map((pkg) => (
-                      <div key={pkg._id} className="flex items-center justify-between gap-3 rounded-xl bg-white/65 p-3 text-sm">
+                      <div key={pkg._id} className="flex items-start justify-between gap-3 rounded-xl bg-white/65 p-3 text-sm">
                         <span className="font-black text-[#12372a]">{pkg.title}</span>
                         <span className="shrink-0 rounded-full bg-[#fff1c7] px-2 py-1 text-xs font-black text-[#29483d]"><FaVideo className="mr-1 inline" /> {packageLabel(pkg)}</span>
                       </div>

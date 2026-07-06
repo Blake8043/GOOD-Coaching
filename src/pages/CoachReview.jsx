@@ -16,6 +16,8 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
 import { documentFileToDataUrl, readFileAsDataUrl } from "../lib/uploads";
 import { normalizePhase } from "../lib/workflow";
+import RichTextContent from "../components/RichTextContent";
+import RichTextEditor from "../components/RichTextEditor";
 
 const blankReview = {
   summary: "",
@@ -307,7 +309,8 @@ function CoachAwaitingUpload({ submission }) {
         </p>
 
         <div className="mt-5 rounded-2xl bg-[#fff1c7]/75 p-4 text-sm leading-6 text-[#5f746c]">
-          <b className="text-[#12372a]">Player goal:</b> {submission.goals || "No goal provided yet."}
+          <b className="text-[#12372a]">Player goal:</b>
+          <RichTextContent value={submission.goals} empty="No goal provided yet." className="mt-1" />
         </div>
       </section>
 
@@ -367,7 +370,8 @@ function CoachReadyReview({
         <div className="mt-5 rounded-2xl bg-[#fff8e7] p-4 text-sm leading-6 text-[#5f746c]">
           <b className="text-[#12372a]">Review package:</b> {submission.packageId?.title || "Coaching review"}
           <br />
-          <b className="text-[#12372a]">Player goal:</b> {submission.goals || "No goal provided."}
+          <b className="text-[#12372a]">Player goal:</b>
+          <RichTextContent value={submission.goals} empty="No goal provided." className="mt-1" />
         </div>
 
         <form onSubmit={addComment} className="mt-5 rounded-2xl border border-[#12372a]/10 bg-[#fff8e7] p-4">
@@ -583,13 +587,7 @@ function Field({ label, value, onChange, rows = 3, placeholder = "" }) {
     <label className="block">
       <span className="text-sm font-black text-[#12372a]">{label}</span>
 
-      <textarea
-        rows={rows}
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        className="pp-input mt-1 px-4 py-3"
-        placeholder={placeholder}
-      />
+      <RichTextEditor rows={rows} value={value || ""} onChange={onChange} className="mt-1" placeholder={placeholder} />
     </label>
   );
 }
@@ -599,7 +597,7 @@ function Info({ title, value }) {
     <div className="rounded-2xl border border-[#12372a]/10 bg-[#fff8e7] p-4">
       <h3 className="font-black text-[#12372a]">{title}</h3>
 
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#5f746c]">{value || "-"}</p>
+      <RichTextContent value={value} className="mt-2 text-sm leading-6 text-[#5f746c]" />
     </div>
   );
 }
