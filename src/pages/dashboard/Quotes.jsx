@@ -3,6 +3,8 @@ import { FaClipboardCheck, FaMapMarkerAlt, FaUsers, FaVideo } from "react-icons/
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
 import { useToast } from "../../components/Toast";
+import RichTextEditor from "../../components/RichTextEditor";
+import { richTextToPlainText } from "../../lib/richText";
 
 const TEMPLATES = [
   {
@@ -44,7 +46,7 @@ export default function DashboardQuotes() {
   const applyTemplate = (t) => setForm({ subject: t.subject, details: t.details });
 
   const submit = async () => {
-    if (!form.subject.trim() || !form.details.trim()) {
+    if (!form.subject.trim() || !richTextToPlainText(form.details)) {
       push("Add a subject and details first.", "error");
       return;
     }
@@ -102,7 +104,7 @@ export default function DashboardQuotes() {
           </label>
           <label className="block">
             <span className="mb-1 block text-sm font-black text-[#12372a]">Details</span>
-            <textarea rows={5} className="pp-input px-4 py-3" value={form.details} onChange={(e) => setForm((f) => ({ ...f, details: e.target.value }))} placeholder="Include the preferred focus area, skill level, goals, and timing." />
+            <RichTextEditor rows={5} value={form.details} onChange={(value) => setForm((f) => ({ ...f, details: value }))} placeholder="Include the preferred focus area, skill level, goals, and timing." />
           </label>
         </div>
         <button onClick={submit} disabled={sending} className="pp-btn-primary mt-5 px-5 py-3 disabled:opacity-60">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FaStar } from "react-icons/fa";
 import { api } from "../lib/api";
+import RichTextContent from "../components/RichTextContent";
 
 const fallback = [
   {
@@ -53,7 +54,9 @@ export default function Testimonials() {
               <div className="mb-4 flex gap-1">
                 {Array.from({ length: t.rating || 5 }).map((_, i) => <FaStar key={i} className="text-amber-400" />)}
               </div>
-              <p className="text-gray-300">"{t.text}"</p>
+              <div className="text-gray-300">
+                <RichTextContent value={t.text} />
+              </div>
               <div className="mt-5 font-bold">{t.name}</div>
               <div className="text-sm text-gray-500">{[t.service, t.location].filter(Boolean).join(" / ")}</div>
             </article>

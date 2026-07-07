@@ -17,6 +17,9 @@ import {
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextContent from "../components/RichTextContent";
+import RichTextEditor from "../components/RichTextEditor";
+import { richTextToPlainText } from "../lib/richText";
 
 const SKILL_LEVEL_OPTIONS = [
   "Beginner (2.5-3.0)",
@@ -109,7 +112,7 @@ export default function CoachProfile() {
 
   const startConversation = async () => {
     if (!user) return nav("/signin", { state: { from: { pathname: `/coaches/${id}` } } });
-    if (!inquiryMessage.trim()) return push("Write a short message for the coach first.", "error");
+    if (!richTextToPlainText(inquiryMessage)) return push("Write a short message for the coach first.", "error");
 
     setBusy(true);
     try {
@@ -137,7 +140,7 @@ export default function CoachProfile() {
     if (!user) return nav("/signin", { state: { from: { pathname: `/coaches/${id}` } } });
     if (!requestedServices.length) return push("Select at least one training service.", "error");
     if (!requestedUploadTypes.length) return push("Choose whether you plan to send video, PDF/document, or both.", "error");
-    if (!form.goals.trim() && !form.description.trim()) return push("Tell the coach what you would like help with.", "error");
+    if (!richTextToPlainText(form.goals) && !richTextToPlainText(form.description)) return push("Tell the coach what you would like help with.", "error");
 
     setBusy(true);
     try {
@@ -246,9 +249,11 @@ export default function CoachProfile() {
                 <FaStar /> {coach.rating || 5} rating / {coach.reviewCount || 0} reviews
               </div>
 
-              <p className="mt-6 leading-7 text-[#40584f]">
-                {coach.bio || "This coach is ready to review gameplay footage and create a focused online training plan."}
-              </p>
+              <RichTextContent
+                value={coach.bio}
+                empty="This coach is ready to review gameplay footage and create a focused online training plan."
+                className="mt-6 leading-7 text-[#40584f]"
+              />
 
               <div className="mt-6 grid gap-3 rounded-2xl border border-[#00a896]/20 bg-[#eaf9f7] p-4 text-sm text-[#29483d] sm:grid-cols-2">
                 <ProfileFact
@@ -321,7 +326,7 @@ export default function CoachProfile() {
             {chatOpen && (
               <div className="mt-4 rounded-2xl border border-[#00a896]/25 bg-[#eaf9f7] p-4">
                 <p className="text-sm font-bold text-[#40584f]">Send a question before choosing a plan.</p>
-                <textarea value={inquiryMessage} onChange={(e) => setInquiryMessage(e.target.value)} rows={4} className="pp-input mt-3 px-4 py-3" placeholder="Ask your question..." />
+                <RichTextEditor value={inquiryMessage} onChange={setInquiryMessage} rows={4} className="mt-3" placeholder="Ask your question..." />
                 <button onClick={startConversation} disabled={busy} className="pp-btn-primary mt-3 px-4 py-2">
                   Send question
                 </button>
@@ -336,13 +341,13 @@ export default function CoachProfile() {
                 <button
                   key={pkg._id}
                   onClick={() => setSelectedPackageId(pkg._id)}
-                  className={`rounded-2xl border p-4 text-left transition ${selectedPackageId === pkg._id ? "border-[#087f73] bg-[#eaf9f7]" : "border-[#12372a]/10 bg-white hover:bg-[#fff8e7]"}`}
+                  className={`flex h-full flex-col rounded-2xl border p-4 text-left transition ${selectedPackageId === pkg._id ? "border-[#087f73] bg-[#eaf9f7]" : "border-[#12372a]/10 bg-white hover:bg-[#fff8e7]"}`}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <h3 className="font-black text-[#12372a]">{pkg.title}</h3>
                     <span className="rounded-full bg-[#c6ff4a] px-3 py-1 text-sm font-black">{money(pkg.price)}</span>
                   </div>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#40584f]">{pkg.description}</p>
+                  <RichTextContent value={pkg.description} className="mt-2 text-sm leading-6 text-[#40584f]" />
                   {!!includedDeliverables(pkg).length && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {includedDeliverables(pkg).map((item) => (
@@ -376,8 +381,8 @@ export default function CoachProfile() {
                 <option value="">Select level</option>
                 {SKILL_LEVEL_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
-              <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={form.goals} onChange={(e) => updateForm("goals", e.target.value)} placeholder="Main goals" />
-              <textarea className="pp-input px-4 py-3 md:col-span-2" rows={3} value={form.description} onChange={(e) => updateForm("description", e.target.value)} placeholder="Extra notes" />
+              <RichTextEditor className="md:col-span-2" rows={3} value={form.goals} onChange={(value) => updateForm("goals", value)} placeholder="Main goals" />
+              <RichTextEditor className="md:col-span-2" rows={3} value={form.description} onChange={(value) => updateForm("description", value)} placeholder="Extra notes" />
             </div>
 
             {customRequestOpen && (

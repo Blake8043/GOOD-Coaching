@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { FaClock, FaComments, FaEnvelope, FaLifeRing, FaShieldAlt, FaVideo } from "react-icons/fa";
 import { api } from "../lib/api";
+import RichTextEditor from "../components/RichTextEditor";
+import { richTextToPlainText } from "../lib/richText";
 
 const emptyForm = {
   name: "",
@@ -30,6 +32,9 @@ export default function Contact() {
     setStatus("");
 
     try {
+      if (!richTextToPlainText(form.message)) {
+        throw new Error("Add a message before sending.");
+      }
       await api.post("/contact", form);
       setForm(emptyForm);
       setStatus("Thanks. Your message was received. Please allow 1-3 business days for a response.");
@@ -118,11 +123,11 @@ export default function Contact() {
               </Field>
 
               <Field label="Message" wide>
-                <textarea
+                <RichTextEditor
                   value={form.message}
-                  onChange={(event) => update("message", event.target.value)}
+                  onChange={(value) => update("message", value)}
                   rows={7}
-                  className="pp-input mt-1 px-4 py-3"
+                  className="mt-1"
                   required
                   placeholder="Include the page you were using and what you expected to happen."
                 />

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextEditor from "../components/RichTextEditor";
+import { richTextToPlainText } from "../lib/richText";
 
 const empty = {
   name: "",
@@ -39,6 +41,7 @@ export default function AdminTestimonials() {
   const save = async (e) => {
     e.preventDefault();
     try {
+      if (!richTextToPlainText(form.text)) throw new Error("Add testimonial text first.");
       if (editing) await api.put(`/testimonials/${editing}`, form, token);
       else await api.post("/testimonials", form, token);
       push(editing ? "Testimonial updated" : "Testimonial added", "success");
@@ -93,7 +96,7 @@ export default function AdminTestimonials() {
               <select value={form.rating} onChange={(e) => set("rating", Number(e.target.value))} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white">
                 {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{n} stars</option>)}
               </select>
-              <textarea value={form.text} onChange={(e) => set("text", e.target.value)} rows={5} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white placeholder:text-gray-500" placeholder="Customer feedback" required />
+              <RichTextEditor value={form.text} onChange={(value) => set("text", value)} rows={5} placeholder="Customer feedback" required />
               <select value={form.status} onChange={(e) => set("status", e.target.value)} className="rounded-md border border-white/10 bg-zinc-900 p-3 text-white">
                 <option value="published">Published</option>
                 <option value="draft">Draft</option>

@@ -13,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
 import { normalizePhase } from "../lib/workflow";
 import { MAX_VIDEO_MINUTES, validateVideoFile } from "../lib/uploads";
+import RichTextContent from "../components/RichTextContent";
 
 function nextPhaseStatus(status) {
   const phase = normalizePhase(status);
@@ -269,9 +270,12 @@ function AwaitingUploadPage({ submission, selectedVideo, videoPreviewUrl, videoD
       <section className="rounded-[2rem] border border-[#12372a]/10 bg-white/82 p-6 shadow-sm">
         <div className="grid h-16 w-16 place-items-center rounded-2xl bg-[#d9f7fb] text-3xl text-[#00a896]"><FaCloudUploadAlt /></div>
         <h2 className="mt-5 text-2xl font-black text-[#12372a]">Upload required files before coach review</h2>
-        <p className="mt-3 leading-7 text-[#5f746c]">
-          {submission.uploadInstructions || "Upload the file type required by your personalized quote. The coach can begin once every required item is submitted."}
-        </p>
+        <div className="mt-3 leading-7 text-[#5f746c]">
+          <RichTextContent
+            value={submission.uploadInstructions}
+            empty="Upload the file type required by your personalized quote. The coach can begin once every required item is submitted."
+          />
+        </div>
 
         {needsVideo && (
           <div className="mt-6 rounded-2xl border border-dashed border-[#00a896]/30 bg-[#d9f7fb]/60 p-5">
@@ -305,7 +309,8 @@ function AwaitingUploadPage({ submission, selectedVideo, videoPreviewUrl, videoD
           <ChecklistItem>Once all required files are uploaded, the coach can start the review.</ChecklistItem>
         </div>
         <div className="mt-5 rounded-2xl bg-[#fff1c7]/70 p-4 text-sm leading-6 text-[#5f746c]">
-          <b className="text-[#12372a]">Coaching goal:</b> {submission.goals || submission.description}
+          <b className="text-[#12372a]">Coaching goal:</b>
+          <RichTextContent value={submission.goals || submission.description} className="mt-1" />
         </div>
       </section>
     </div>
@@ -319,7 +324,10 @@ function ReadyForReviewPage({ submission, videoSrc, deletePdf, busy }) {
         <h2 className="mb-4 flex items-center gap-2 text-2xl font-black text-[#12372a]"><FaVideo className="text-[#00a896]" /> Ready for coach review</h2>
         {videoSrc ? <VideoViewer videoSrc={videoSrc} /> : <div className="rounded-2xl border border-dashed border-[#00a896]/30 bg-[#d9f7fb]/45 p-8 text-center text-[#5f746c]"><FaFilePdf className="mx-auto mb-4 text-4xl text-[#b94024]" />No video required for this request.</div>}
         {Array.isArray(submission.documents) && submission.documents.length > 0 && <DocumentList documents={submission.documents} canDelete deletePdf={deletePdf} busy={busy} />}
-        <div className="mt-5 rounded-2xl bg-[#fff1c7]/70 p-4 text-sm leading-6 text-[#5f746c]"><b className="text-[#12372a]">Player goal:</b> {submission.goals || submission.description}</div>
+        <div className="mt-5 rounded-2xl bg-[#fff1c7]/70 p-4 text-sm leading-6 text-[#5f746c]">
+          <b className="text-[#12372a]">Player goal:</b>
+          <RichTextContent value={submission.goals || submission.description} className="mt-1" />
+        </div>
       </section>
 
       <section className="rounded-[2rem] border border-[#12372a]/10 bg-white/82 p-6 shadow-sm">
@@ -341,7 +349,7 @@ function ReviewedPage({ submission, review, videoSrc }) {
       {videoSrc && <div className="mt-5"><VideoViewer videoSrc={videoSrc} /></div>}
       {Array.isArray(submission.documents) && submission.documents.length > 0 && <DocumentList documents={submission.documents} />}
       <div className="mt-5 rounded-2xl bg-[#eaf9f7] p-5 text-[#40584f]">
-        {review ? <pre className="whitespace-pre-wrap font-sans">{review.summary || review.notes || "Review completed."}</pre> : "Your coach has completed this review."}
+        {review ? <RichTextContent value={review.summary || review.notes} empty="Review completed." /> : "Your coach has completed this review."}
       </div>
     </div>
   );

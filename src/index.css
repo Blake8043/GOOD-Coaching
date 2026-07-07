@@ -327,6 +327,67 @@ body {
   color: rgba(95, 116, 108, .72);
 }
 
+.pp-rich-editor-wrap {
+  width: 100%;
+}
+
+.pp-rich-editor {
+  min-height: 8rem;
+  overflow: auto;
+  line-height: 1.65;
+}
+
+.pp-rich-editor:empty::before,
+.pp-rich-editor[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: rgba(95, 116, 108, .72);
+  pointer-events: none;
+}
+
+.pp-rich-editor p,
+.pp-rich-editor div,
+.pp-rich-text p,
+.pp-rich-text div {
+  margin: 0 0 .65rem;
+}
+
+.pp-rich-editor p:last-child,
+.pp-rich-editor div:last-child,
+.pp-rich-text p:last-child,
+.pp-rich-text div:last-child {
+  margin-bottom: 0;
+}
+
+.pp-rich-editor ul,
+.pp-rich-editor ol,
+.pp-rich-text ul,
+.pp-rich-text ol {
+  margin: .35rem 0 .65rem 1.35rem;
+  padding: 0;
+}
+
+.pp-rich-editor ul,
+.pp-rich-text ul {
+  list-style: disc;
+}
+
+.pp-rich-editor ol,
+.pp-rich-text ol {
+  list-style: decimal;
+}
+
+.pp-rich-editor blockquote,
+.pp-rich-text blockquote {
+  margin: .35rem 0 .65rem;
+  border-left: 3px solid var(--pp-teal);
+  padding-left: .8rem;
+  color: var(--pp-muted);
+}
+
+.pp-card-title-top {
+  align-items: flex-start !important;
+}
+
 .pp-ball {
   background:
     radial-gradient(circle at 35% 25%, #ffffff 0 5%, transparent 6%),

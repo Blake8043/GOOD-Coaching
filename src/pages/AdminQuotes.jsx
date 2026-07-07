@@ -3,6 +3,7 @@ import { FaTrash } from "react-icons/fa";
 import { api } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../components/Toast";
+import RichTextContent from "../components/RichTextContent";
 
 function money(value) { return `$${Number(value || 0).toFixed(2)}`; }
 function status(value) { return String(value || "open").replaceAll("_", " "); }
@@ -87,7 +88,7 @@ export default function AdminQuotes() {
                     <td className="px-4 py-3 capitalize text-gray-300">{status(isRequest ? q.quote?.status : q.status)}</td>
                     <td className="px-4 py-3 text-gray-300">{money(isRequest ? q.quote?.amount : q.estimate)}</td>
                     <td className="px-4 py-3">
-                      <div className="max-w-xl whitespace-pre-wrap text-gray-400">{isRequest ? q.quote?.scope || q.quote?.deliverables || q.messages?.[0]?.body : q.details}</div>
+                      <RichTextContent value={isRequest ? q.quote?.scope || q.quote?.deliverables || q.messages?.[0]?.body : q.details} className="max-w-xl text-gray-400" />
                     </td>
                     <td className="px-4 py-3">
                       <button disabled={busy} onClick={() => remove(q)} className="inline-flex items-center gap-1 rounded bg-red-600 px-3 py-1 text-xs font-black text-white hover:bg-red-500 disabled:opacity-60">
