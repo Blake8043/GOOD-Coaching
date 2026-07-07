@@ -1,6 +1,7 @@
 const RICH_TAG_RE = /<\/?(b|strong|i|em|u|p|br|ul|ol|li|blockquote|div)\b/i;
 const ALLOWED_TAGS = new Set(["b", "strong", "i", "em", "u", "p", "br", "ul", "ol", "li", "blockquote", "div"]);
 const DROP_TAGS = new Set(["script", "style", "iframe", "object", "embed", "svg", "math"]);
+const BLOCK_TEXT_TAGS = new Set(["p", "div", "li", "blockquote"]);
 
 export function hasRichTextMarkup(value = "") {
   return RICH_TAG_RE.test(String(value || ""));
@@ -16,7 +17,7 @@ export function escapeHtml(value = "") {
 }
 
 export function plainTextToHtml(value = "") {
-  const text = String(value || "").replace(/\r\n/g, "\n").trim();
+  const text = String(value || "").replace(/\r\n?/g, "\n").trim();
   if (!text) return "";
 
   return text
@@ -26,7 +27,9 @@ export function plainTextToHtml(value = "") {
 }
 
 function cleanNode(node) {
-  if (node.nodeType === Node.TEXT_NODE) return escapeHtml(node.textContent || "");
+  if (node.nodeType === Node.TEXT_NODE) {
+    return escapeHtml(node.textContent || "").replace(/\r\n?|\n/g, "<br />");
+  }
   if (node.nodeType !== Node.ELEMENT_NODE) return "";
 
   const tag = node.tagName.toLowerCase();
@@ -55,13 +58,30 @@ export function valueToEditorHtml(value = "") {
   return sanitizeRichText(value);
 }
 
+function nodeToPlainText(node) {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent || "";
+  if (node.nodeType !== Node.ELEMENT_NODE) return "";
+
+  const tag = node.tagName.toLowerCase();
+  if (tag === "br") return "\n";
+
+  const text = Array.from(node.childNodes).map(nodeToPlainText).join("");
+  return BLOCK_TEXT_TAGS.has(tag) ? `${text}\n` : text;
+}
+
 export function richTextToPlainText(value = "") {
   const raw = String(value || "");
   if (!raw) return "";
 
   if (typeof window !== "undefined" && typeof DOMParser !== "undefined" && hasRichTextMarkup(raw)) {
     const doc = new DOMParser().parseFromString(sanitizeRichText(raw), "text/html");
-    return (doc.body.textContent || "").replace(/\u00a0/g, " ").trim();
+    return Array.from(doc.body.childNodes)
+      .map(nodeToPlainText)
+      .join("")
+      .replace(/\u00a0/g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
   }
 
   return raw.replace(/<[^>]*>/g, "").replace(/\u00a0/g, " ").trim();

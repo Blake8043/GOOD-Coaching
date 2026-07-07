@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaBold, FaEraser, FaItalic, FaListOl, FaListUl, FaQuoteLeft, FaUnderline } from "react-icons/fa";
 import { richTextToPlainText, sanitizeRichText, valueToEditorHtml } from "../lib/richText";
 
@@ -12,6 +12,40 @@ const tools = [
   { command: "removeFormat", label: "Clear formatting", icon: <FaEraser /> },
 ];
 
+function insertPlainText(editor, text) {
+  if (!editor || !text || typeof window === "undefined") return;
+
+  editor.focus();
+  const selection = window.getSelection();
+  const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+  const activeRange = range && editor.contains(range.commonAncestorContainer) ? range : document.createRange();
+
+  if (!range || !editor.contains(range.commonAncestorContainer)) {
+    activeRange.selectNodeContents(editor);
+    activeRange.collapse(false);
+  }
+
+  activeRange.deleteContents();
+
+  const fragment = document.createDocumentFragment();
+  const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
+
+  lines.forEach((line, index) => {
+    if (index > 0) fragment.appendChild(document.createElement("br"));
+    if (line) fragment.appendChild(document.createTextNode(line));
+  });
+
+  const lastNode = fragment.lastChild;
+  activeRange.insertNode(fragment);
+
+  if (lastNode) {
+    activeRange.setStartAfter(lastNode);
+    activeRange.collapse(true);
+    selection?.removeAllRanges();
+    selection?.addRange(activeRange);
+  }
+}
+
 export default function RichTextEditor({
   value = "",
   onChange,
@@ -24,6 +58,7 @@ export default function RichTextEditor({
 }) {
   const editorRef = useRef(null);
   const plainText = richTextToPlainText(value);
+  const [isEmpty, setIsEmpty] = useState(!plainText);
 
   useEffect(() => {
     const editor = editorRef.current;
@@ -31,9 +66,10 @@ export default function RichTextEditor({
 
     const next = valueToEditorHtml(value);
     if (editor.innerHTML !== next) editor.innerHTML = next;
+    setIsEmpty(!richTextToPlainText(next));
   }, [value]);
 
-  const emit = () => {
+  const emit = ({ normalize = false } = {}) => {
     const editor = editorRef.current;
     if (!editor) return;
 
@@ -41,7 +77,9 @@ export default function RichTextEditor({
     const plain = richTextToPlainText(clean);
     const next = plain ? clean : "";
 
-    if (editor.innerHTML !== next) editor.innerHTML = next;
+    setIsEmpty(!plain);
+
+    if (normalize && editor.innerHTML !== next) editor.innerHTML = next;
     onChange?.(next);
   };
 
@@ -57,7 +95,7 @@ export default function RichTextEditor({
   const pastePlainText = (event) => {
     event.preventDefault();
     const text = event.clipboardData?.getData("text/plain") || "";
-    document.execCommand("insertText", false, text);
+    insertPlainText(editorRef.current, text);
     emit();
   };
 
@@ -87,10 +125,10 @@ export default function RichTextEditor({
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        data-empty={plainText ? "false" : "true"}
+        data-empty={isEmpty ? "true" : "false"}
         data-max-length={maxLength || undefined}
         onInput={emit}
-        onBlur={emit}
+        onBlur={() => emit({ normalize: true })}
         onPaste={pastePlainText}
         className={`pp-rich-editor pp-input px-4 py-3 ${editorClassName}`}
         style={{ minHeight: `${Math.max(Number(rows || 4), 2) * 1.65 + 1.3}rem` }}
